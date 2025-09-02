@@ -70,6 +70,7 @@ interface GroupFormData {
   configItems: ConfigItem[];
   header_rules: HeaderRuleItem[];
   proxy_keys: string;
+  blacklist_threshold: number | null;
 }
 
 // 表单数据
@@ -92,12 +93,14 @@ const formData = reactive<GroupFormData>({
   configItems: [] as ConfigItem[],
   header_rules: [] as HeaderRuleItem[],
   proxy_keys: "",
+  blacklist_threshold: null,
 });
 
 const channelTypeOptions = ref<{ label: string; value: string }[]>([]);
 const configOptions = ref<GroupConfigOption[]>([]);
 const channelTypesFetched = ref(false);
 const configOptionsFetched = ref(false);
+const globalBlacklistThreshold = ref<number>(3); // 默认值
 
 // 跟踪用户是否已手动修改过字段（仅在新增模式下使用）
 const userModifiedFields = ref({
@@ -284,6 +287,7 @@ function resetForm() {
     configItems: [],
     header_rules: [],
     proxy_keys: "",
+    blacklist_threshold: null,
   });
 
   // 重置用户修改状态追踪
@@ -307,6 +311,13 @@ function loadGroupData() {
       value,
     };
   });
+  
+  // 检查是否有分组级别的黑名单阈值配置
+  let blacklistThreshold = null;
+  if (props.group.config && 'blacklist_threshold' in props.group.config) {
+    blacklistThreshold = props.group.config.blacklist_threshold as number;
+  }
+  
   Object.assign(formData, {
     name: props.group.name || "",
     display_name: props.group.display_name || "",
@@ -327,6 +338,7 @@ function loadGroupData() {
       action: (rule.action as "set" | "remove") || "set",
     })),
     proxy_keys: props.group.proxy_keys || "",
+    blacklist_threshold: blacklistThreshold,
   });
 }
 
@@ -360,6 +372,13 @@ function removeUpstream(index: number) {
 async function fetchGroupConfigOptions() {
   const options = await keysApi.getGroupConfigOptions();
   configOptions.value = options || [];
+  
+  // 获取全局黑名单阈值默认值
+  const blacklistOption = options.find(opt => opt.key === 'blacklist_threshold');
+  if (blacklistOption && typeof blacklistOption.default_value === 'number') {
+    globalBlacklistThreshold.value = blacklistOption.default_value;
+  }
+  
   configOptionsFetched.value = true;
 }
 
@@ -469,6 +488,11 @@ async function handleSubmit() {
         }
       }
     });
+
+    // 处理黑名单阈值配置
+    if (formData.blacklist_threshold !== null && formData.blacklist_threshold !== undefined) {
+      config.blacklist_threshold = formData.blacklist_threshold;
+    }
 
     // 构建提交数据
     const submitData = {
@@ -675,6 +699,36 @@ async function handleSubmit() {
             <div v-else class="form-item-half" />
           </div>
 
+          <!-- 黑名单阈值 -->
+          <n-form-item label="黑名单阈值" path="blacklist_threshold">
+            <template #label>
+              <div class="form-label-with-tooltip">
+                黑名单阈值
+                <n-tooltip trigger="hover" placement="top">
+                  <template #trigger>
+                    <n-icon :component="HelpCircleOutline" class="help-icon" />
+                  </template>
+                  <div>
+                    此分组下API密钥连续失败多少次后进入黑名单，0为不拉黑。
+                    <br />
+                    • 如果不设置，将使用全局设定（当前：{{ globalBlacklistThreshold }}）
+                    <br />
+                    • 如果设置了值，则忽略全局设定，使用此分组的专用配置
+                    <br />
+                    • 此配置对该分组下的所有API密钥均生效
+                  </div>
+                </n-tooltip>
+              </div>
+            </template>
+            <n-input-number
+              v-model:value="formData.blacklist_threshold"
+              :min="0"
+              :placeholder="`全局设定：${globalBlacklistThreshold}`"
+              clearable
+              style="width: 200px"
+            />
+          </n-form-item>
+
           <!-- 代理密钥 -->
           <n-form-item label="代理密钥" path="proxy_keys">
             <template #label>
@@ -838,14 +892,16 @@ async function handleSubmit() {
                         <n-select
                           v-model:value="configItem.key"
                           :options="
-                            configOptions.map(opt => ({
-                              label: opt.name,
-                              value: opt.key,
-                              disabled:
-                                formData.configItems
-                                  .map((item: ConfigItem) => item.key)
-                                  ?.includes(opt.key) && opt.key !== configItem.key,
-                            }))
+                            configOptions
+                              .filter(opt => opt.key !== 'blacklist_threshold')
+                              .map(opt => ({
+                                label: opt.name,
+                                value: opt.key,
+                                disabled:
+                                  formData.configItems
+                                    .map((item: ConfigItem) => item.key)
+                                    ?.includes(opt.key) && opt.key !== configItem.key,
+                              }))
                           "
                           placeholder="请选择配置参数"
                           @update:value="value => handleConfigKeyChange(index, value)"
@@ -894,7 +950,7 @@ async function handleSubmit() {
                     @click="addConfigItem"
                     dashed
                     style="width: 100%"
-                    :disabled="formData.configItems.length >= configOptions.length"
+                    :disabled="formData.configItems.length >= configOptions.length - 1"
                   >
                     <template #icon>
                       <n-icon :component="Add" />
