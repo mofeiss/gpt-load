@@ -72,10 +72,12 @@ function renderMenuItem(key: string, label: string, icon: string): MenuOption {
   border-radius: var(--border-radius-md);
   transition: all 0.2s ease;
   font-weight: 500;
+  cursor: pointer;
 }
 
 :deep(.n-menu-item) {
   border-radius: var(--border-radius-md);
+  cursor: pointer;
 }
 
 :deep(.n-menu--vertical .n-menu-item-content) {
@@ -88,8 +90,12 @@ function renderMenuItem(key: string, label: string, icon: string): MenuOption {
 
 :deep(.n-menu-item:hover) {
   background: rgba(102, 126, 234, 0.1);
-  transform: translateY(-1px);
   border-radius: var(--border-radius-md);
+  cursor: pointer;
+}
+
+:deep(.n-menu-item:hover .nav-menu-item) {
+  transform: translateY(-1px);
 }
 
 :deep(.n-menu-item--selected) {
@@ -98,10 +104,15 @@ function renderMenuItem(key: string, label: string, icon: string): MenuOption {
   font-weight: 600;
   box-shadow: var(--shadow-md);
   border-radius: var(--border-radius-md);
+  cursor: pointer;
 }
 
 :deep(.n-menu-item--selected:hover) {
   background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  cursor: pointer;
+}
+
+:deep(.n-menu-item--selected:hover .nav-menu-item) {
   transform: translateY(-1px);
 }
 </style>
