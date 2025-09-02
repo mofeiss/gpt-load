@@ -39,6 +39,7 @@ type SystemSettings struct {
 	KeyValidationIntervalMinutes int `json:"key_validation_interval_minutes" default:"60" name:"密钥验证间隔（分钟）" category:"密钥配置" desc:"后台验证密钥的默认间隔（分钟）。" validate:"required,min=1"`
 	KeyValidationConcurrency     int `json:"key_validation_concurrency" default:"10" name:"密钥验证并发数" category:"密钥配置" desc:"后台定时验证无效 Key 时的并发数，如果使用SQLite或者运行环境性能不佳，请尽量保证20以下，避免过高的并发导致数据不一致问题。" validate:"required,min=1"`
 	KeyValidationTimeoutSeconds  int `json:"key_validation_timeout_seconds" default:"20" name:"密钥验证超时（秒）" category:"密钥配置" desc:"后台定时验证单个 Key 时的 API 请求超时时间（秒）。" validate:"required,min=1"`
+	RetryIntervalMs             int `json:"retry_interval_ms" default:"100" name:"重试间隔（毫秒）" category:"密钥配置" desc:"单个请求使用 API 时如果发生请求错误，则间隔多少毫秒后重试。" validate:"required,min=0"`
 
 	// For cache
 	ProxyKeysMap map[string]struct{} `json:"-"`

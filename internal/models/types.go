@@ -38,6 +38,7 @@ type GroupConfig struct {
 	KeyValidationConcurrency     *int    `json:"key_validation_concurrency,omitempty"`
 	KeyValidationTimeoutSeconds  *int    `json:"key_validation_timeout_seconds,omitempty"`
 	EnableRequestBodyLogging     *bool   `json:"enable_request_body_logging,omitempty"`
+	RetryIntervalMs             *int    `json:"retry_interval_ms,omitempty"`
 }
 
 // HeaderRule defines a single rule for header manipulation.

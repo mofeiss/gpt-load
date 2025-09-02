@@ -213,6 +213,12 @@ func (ps *ProxyServer) executeRequestWithRetry(
 			return
 		}
 
+		// 添加重试间隔等待
+		if cfg.RetryIntervalMs > 0 {
+			logrus.Debugf("Waiting %d ms before retry attempt %d", cfg.RetryIntervalMs, retryCount+2)
+			time.Sleep(time.Duration(cfg.RetryIntervalMs) * time.Millisecond)
+		}
+
 		ps.executeRequestWithRetry(c, channelHandler, group, bodyBytes, isStream, startTime, retryCount+1)
 		return
 	}
