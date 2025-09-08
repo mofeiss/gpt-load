@@ -262,7 +262,7 @@ func (p *KeyProvider) LoadKeysFromDB() error {
 				}
 			}
 
-			if key.Status == models.KeyStatusActive {
+			if key.Status == models.KeyStatusActive && !key.IsDisabled {
 				allActiveKeyIDs[key.GroupID] = append(allActiveKeyIDs[key.GroupID], key.ID)
 			}
 		}
@@ -536,6 +536,76 @@ func (p *KeyProvider) RemoveKeysFromStore(groupID uint, keyIDs []uint) error {
 	return nil
 }
 
+// RemoveKeysFromActiveList 仅从active列表中移除指定的键，保留其他活跃密钥
+// 用于手动停用密钥时
+func (p *KeyProvider) RemoveKeysFromActiveList(groupID uint, keyIDs []uint) error {
+	if len(keyIDs) == 0 {
+		return nil
+	}
+
+	activeKeysListKey := fmt.Sprintf("group:%d:active_keys", groupID)
+
+	// 从active列表中移除指定的密钥ID
+	for _, keyID := range keyIDs {
+		if err := p.store.LRem(activeKeysListKey, 0, keyID); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"keyID":  keyID,
+				"groupID": groupID,
+				"error":  err,
+			}).Error("Failed to remove key from active list")
+		}
+		
+		// 更新key hash中的状态信息，标记为手动停用
+		keyHashKey := fmt.Sprintf("key:%d", keyID)
+		if err := p.store.HSet(keyHashKey, map[string]any{"is_disabled": true}); err != nil {
+			logrus.WithFields(logrus.Fields{
+				"keyID": keyID,
+				"error": err,
+			}).Error("Failed to update key disabled status in hash")
+		}
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"groupID":  groupID,
+		"keyCount": len(keyIDs),
+	}).Debug("Successfully removed keys from active list")
+
+	return nil
+}
+
+// AddKeyToActiveList 将已存在的密钥添加回active列表
+// 用于手动启用密钥时
+func (p *KeyProvider) AddKeyToActiveList(key *models.APIKey) error {
+	if key == nil || key.Status != models.KeyStatusActive {
+		return fmt.Errorf("key is nil or not active")
+	}
+
+	// 更新key hash中的所有信息
+	keyHashKey := fmt.Sprintf("key:%d", key.ID)
+	keyDetails := p.apiKeyToMap(key)
+	if err := p.store.HSet(keyHashKey, keyDetails); err != nil {
+		return fmt.Errorf("failed to update key details for key %d: %w", key.ID, err)
+	}
+
+	// 添加到active列表
+	activeKeysListKey := fmt.Sprintf("group:%d:active_keys", key.GroupID)
+	// 先移除可能存在的重复项
+	if err := p.store.LRem(activeKeysListKey, 0, key.ID); err != nil {
+		return fmt.Errorf("failed to LRem key %d before LPush for group %d: %w", key.ID, key.GroupID, err)
+	}
+	// 添加到列表
+	if err := p.store.LPush(activeKeysListKey, key.ID); err != nil {
+		return fmt.Errorf("failed to LPush key %d to group %d: %w", key.ID, key.GroupID, err)
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"keyID":   key.ID,
+		"groupID": key.GroupID,
+	}).Debug("Successfully added key back to active list")
+
+	return nil
+}
+
 // addKeyToStore is a helper to add a single key to the cache.
 func (p *KeyProvider) addKeyToStore(key *models.APIKey) error {
 	// 1. Store key details in HASH
@@ -545,8 +615,8 @@ func (p *KeyProvider) addKeyToStore(key *models.APIKey) error {
 		return fmt.Errorf("failed to HSet key details for key %d: %w", key.ID, err)
 	}
 
-	// 2. If active, add to the active LIST
-	if key.Status == models.KeyStatusActive {
+	// 2. If active and not manually disabled, add to the active LIST
+	if key.Status == models.KeyStatusActive && !key.IsDisabled {
 		activeKeysListKey := fmt.Sprintf("group:%d:active_keys", key.GroupID)
 		if err := p.store.LRem(activeKeysListKey, 0, key.ID); err != nil {
 			return fmt.Errorf("failed to LRem key %d before LPush for group %d: %w", key.ID, key.GroupID, err)
@@ -578,6 +648,7 @@ func (p *KeyProvider) apiKeyToMap(key *models.APIKey) map[string]any {
 		"id":            fmt.Sprint(key.ID),
 		"key_string":    key.KeyValue,
 		"status":        key.Status,
+		"is_disabled":   key.IsDisabled,
 		"failure_count": key.FailureCount,
 		"group_id":      key.GroupID,
 		"created_at":    key.CreatedAt.Unix(),

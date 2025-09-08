@@ -376,15 +376,11 @@ function formatRelativeTime(date: string) {
   return "刚刚";
 }
 
-function getStatusClass(status: KeyStatus): string {
-  switch (status) {
-    case "active":
-      return "status-valid";
-    case "invalid":
-      return "status-invalid";
-    default:
-      return "status-unknown";
+function getStatusClass(key: KeyRow): string {
+  if (key.is_disabled || key.status !== "active") {
+    return "status-invalid";
   }
+  return "status-valid";
 }
 
 async function copyAllKeys() {
@@ -704,25 +700,22 @@ function cancelEditingRemarks(key: KeyRow) {
             v-for="key in keys"
             :key="key.id"
             class="key-card"
-            :class="getStatusClass(key.status)"
+            :class="getStatusClass(key)"
           >
             <!-- 主要信息行：Key + 快速操作 -->
             <div class="key-main">
               <div class="key-section">
-                <n-tag v-if="key.is_disabled" type="warning" :bordered="false" round>
-                  手动停用
+                <n-tag v-if="key.is_disabled || key.status !== 'active'" :bordered="false" round>
+                  <template #icon>
+                    <n-icon :component="AlertCircleOutline" />
+                  </template>
+                  {{ key.is_disabled ? '手动停用' : '无效' }}
                 </n-tag>
-                <n-tag v-else-if="key.status === 'active'" type="success" :bordered="false" round>
+                <n-tag v-else type="success" :bordered="false" round>
                   <template #icon>
                     <n-icon :component="CheckmarkCircle" />
                   </template>
                   有效
-                </n-tag>
-                <n-tag v-else :bordered="false" round>
-                  <template #icon>
-                    <n-icon :component="AlertCircleOutline" />
-                  </template>
-                  无效
                 </n-tag>
                 <n-input
                   class="key-text"

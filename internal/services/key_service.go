@@ -357,9 +357,35 @@ func (s *KeyService) StreamKeysToWriter(groupID uint, statusFilter string, write
 
 // ToggleKeyDisableStatus 切换密钥的手动停用状态
 func (s *KeyService) ToggleKeyDisableStatus(groupID uint, keyValue string, isDisabled bool) error {
-	return s.DB.Model(&models.APIKey{}).
-		Where("group_id = ? AND key_value = ?", groupID, keyValue).
-		Update("is_disabled", isDisabled).Error
+	var key models.APIKey
+	
+	// 首先获取密钥信息
+	if err := s.DB.Where("group_id = ? AND key_value = ?", groupID, keyValue).First(&key).Error; err != nil {
+		return err
+	}
+
+	// 更新数据库中的停用状态
+	if err := s.DB.Model(&key).Update("is_disabled", isDisabled).Error; err != nil {
+		return err
+	}
+
+	// 更新密钥对象
+	key.IsDisabled = isDisabled
+
+	// 根据新的状态，更新KeyProvider中的active列表
+	if isDisabled {
+		// 手动停用：从active列表中移除（只移除这一个密钥）
+		s.KeyProvider.RemoveKeysFromActiveList(groupID, []uint{key.ID})
+	} else if key.Status == models.KeyStatusActive {
+		// 手动启用且状态为active：添加回active列表（使用专门的方法，不创建新记录）
+		if err := s.KeyProvider.AddKeyToActiveList(&key); err != nil {
+			// 如果添加失败，回滚数据库更改
+			s.DB.Model(&key).Update("is_disabled", !isDisabled)
+			return err
+		}
+	}
+
+	return nil
 }
 
 // UpdateKeyRemarks 更新密钥备注
