@@ -438,6 +438,15 @@ function resetPage() {
       </div>
       <n-divider style="margin: 0" />
 
+      <!-- 分组描述区域 -->
+      <div class="group-description-section" v-if="group?.description">
+        <div class="description-content">
+          {{ group.description }}
+        </div>
+      </div>
+      
+      <n-divider style="margin: 12px 0" v-if="group?.description" />
+
       <!-- 详细信息区（可折叠） -->
       <div class="details-section">
         <n-collapse accordion v-model:expanded-names="expandedName">
@@ -505,13 +514,6 @@ function resetPage() {
                               复制密钥
                             </n-tooltip>
                           </n-button-group>
-                        </div>
-                      </n-form-item>
-                    </n-grid-item>
-                    <n-grid-item :span="2">
-                      <n-form-item label="描述：">
-                        <div class="description-content">
-                          {{ group?.description || "-" }}
                         </div>
                       </n-form-item>
                     </n-grid-item>
@@ -749,6 +751,15 @@ function resetPage() {
   min-height: 0;
 }
 
+/* 分组描述区域样式 */
+.group-description-section {
+  margin: 12px 0;
+  padding: 12px 16px;
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: var(--border-radius-sm);
+  border-left: 4px solid rgba(102, 126, 234, 0.3);
+}
+
 /* 描述内容样式 */
 .description-content {
   white-space: pre-wrap;
@@ -756,6 +767,7 @@ function resetPage() {
   line-height: 1.5;
   min-height: 20px;
   color: #374151;
+  font-size: 0.9rem;
 }
 
 .proxy-keys-content {

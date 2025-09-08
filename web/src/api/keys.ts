@@ -238,4 +238,32 @@ export const keysApi = {
     const res = await http.get("/tasks/status");
     return res.data;
   },
+
+  // 切换密钥停用状态
+  async toggleKeyDisableStatus(
+    groupId: number,
+    keyValue: string,
+    isDisabled: boolean
+  ): Promise<{ message: string }> {
+    const res = await http.post("/keys/toggle-disable", {
+      group_id: groupId,
+      key_value: keyValue,
+      is_disabled: isDisabled,
+    });
+    return res.data;
+  },
+
+  // 更新密钥备注
+  async updateKeyRemarks(
+    groupId: number,
+    keyValue: string,
+    remarks: string
+  ): Promise<{ message: string }> {
+    const res = await http.post("/keys/update-remarks", {
+      group_id: groupId,
+      key_value: keyValue,
+      remarks,
+    });
+    return res.data;
+  },
 };

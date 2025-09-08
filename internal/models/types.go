@@ -9,8 +9,9 @@ import (
 
 // Key状态
 const (
-	KeyStatusActive  = "active"
-	KeyStatusInvalid = "invalid"
+	KeyStatusActive    = "active"
+	KeyStatusInvalid   = "invalid"
+	KeyStatusDisabled  = "disabled" // 手动停用状态
 )
 
 // SystemSetting 对应 system_settings 表
@@ -81,6 +82,8 @@ type APIKey struct {
 	KeyValue     string     `gorm:"type:varchar(700);not null;uniqueIndex:idx_group_key" json:"key_value"`
 	GroupID      uint       `gorm:"not null;uniqueIndex:idx_group_key" json:"group_id"`
 	Status       string     `gorm:"type:varchar(50);not null;default:'active'" json:"status"`
+	IsDisabled   bool       `gorm:"not null;default:false" json:"is_disabled"` // 手动停用标志
+	Remarks      string     `gorm:"type:varchar(500)" json:"remarks"`           // 备注信息
 	RequestCount int64      `gorm:"not null;default:0" json:"request_count"`
 	FailureCount int64      `gorm:"not null;default:0" json:"failure_count"`
 	LastUsedAt   *time.Time `json:"last_used_at"`

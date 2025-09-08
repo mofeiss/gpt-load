@@ -32,6 +32,8 @@ import KeyDeleteDialog from "./KeyDeleteDialog.vue";
 
 interface KeyRow extends APIKey {
   is_visible: boolean;
+  is_editing_remarks: boolean;
+  temp_remarks: string;
 }
 
 interface Props {
@@ -190,7 +192,12 @@ async function loadKeys() {
       status: statusFilter.value === "all" ? undefined : (statusFilter.value as KeyStatus),
       key_value: searchText.value.trim() || undefined,
     });
-    keys.value = result.items as KeyRow[];
+    keys.value = result.items.map(item => ({
+      ...item,
+      is_visible: false,
+      is_editing_remarks: false,
+      temp_remarks: item.remarks || '',
+    })) as KeyRow[];
     total.value = result.pagination.total_items;
     totalPages.value = result.pagination.total_pages;
   } catch (_error) {
@@ -572,6 +579,68 @@ function resetPage() {
   searchText.value = "";
   statusFilter.value = "all";
 }
+
+// 切换密钥停用状态
+async function toggleKeyDisableStatus(key: KeyRow) {
+  if (!props.selectedGroup?.id) {
+    return;
+  }
+
+  const newDisableStatus = !key.is_disabled;
+  const action = newDisableStatus ? "停用" : "启用";
+
+  const d = dialog.warning({
+    title: `${action}密钥`,
+    content: `确定要${action}密钥"${maskKey(key.key_value)}"吗？`,
+    positiveText: "确定",
+    negativeText: "取消",
+    onPositiveClick: async () => {
+      if (!props.selectedGroup?.id) {
+        return;
+      }
+
+      d.loading = true;
+
+      try {
+        await keysApi.toggleKeyDisableStatus(props.selectedGroup.id, key.key_value, newDisableStatus);
+        key.is_disabled = newDisableStatus;
+        window.$message.success(`密钥已${action}`);
+      } catch (_error) {
+        console.error(`${action}失败`);
+      } finally {
+        d.loading = false;
+      }
+    },
+  });
+}
+
+// 开始编辑备注
+function startEditingRemarks(key: KeyRow) {
+  key.is_editing_remarks = true;
+  key.temp_remarks = key.remarks || '';
+}
+
+// 保存备注
+async function saveRemarks(key: KeyRow) {
+  if (!props.selectedGroup?.id) {
+    return;
+  }
+
+  try {
+    await keysApi.updateKeyRemarks(props.selectedGroup.id, key.key_value, key.temp_remarks);
+    key.remarks = key.temp_remarks;
+    key.is_editing_remarks = false;
+    window.$message.success("备注更新成功");
+  } catch (_error) {
+    console.error("备注更新失败");
+  }
+}
+
+// 取消编辑备注
+function cancelEditingRemarks(key: KeyRow) {
+  key.is_editing_remarks = false;
+  key.temp_remarks = key.remarks || '';
+}
 </script>
 
 <template>
@@ -640,7 +709,10 @@ function resetPage() {
             <!-- 主要信息行：Key + 快速操作 -->
             <div class="key-main">
               <div class="key-section">
-                <n-tag v-if="key.status === 'active'" type="success" :bordered="false" round>
+                <n-tag v-if="key.is_disabled" type="warning" :bordered="false" round>
+                  手动停用
+                </n-tag>
+                <n-tag v-else-if="key.status === 'active'" type="success" :bordered="false" round>
                   <template #icon>
                     <n-icon :component="CheckmarkCircle" />
                   </template>
@@ -673,6 +745,38 @@ function resetPage() {
               </div>
             </div>
 
+            <!-- 备注信息 -->
+            <div class="key-remarks">
+              <div v-if="!key.is_editing_remarks" class="remarks-display">
+                <span 
+                  v-if="key.remarks" 
+                  class="remarks-text" 
+                  @click="startEditingRemarks(key)"
+                  title="点击编辑备注"
+                >
+                  {{ key.remarks }}
+                </span>
+                <span 
+                  v-else 
+                  class="remarks-placeholder" 
+                  @click="startEditingRemarks(key)"
+                  title="点击添加备注"
+                >
+                  点击添加备注
+                </span>
+              </div>
+              <div v-else class="remarks-edit">
+                <n-input
+                  v-model:value="key.temp_remarks"
+                  size="small"
+                  placeholder="输入备注信息"
+                  @blur="saveRemarks(key)"
+                  @keyup.enter="saveRemarks(key)"
+                  @keyup.escape="cancelEditingRemarks(key)"
+                />
+              </div>
+            </div>
+
             <!-- 统计信息 + 操作按钮行 -->
             <div class="key-bottom">
               <div class="key-stats">
@@ -700,7 +804,27 @@ function resetPage() {
                   测试
                 </n-button>
                 <n-button
-                  v-if="key.status !== 'active'"
+                  v-if="key.is_disabled"
+                  tertiary
+                  size="tiny"
+                  @click="toggleKeyDisableStatus(key)"
+                  title="启用密钥"
+                  type="success"
+                >
+                  启用
+                </n-button>
+                <n-button
+                  v-else
+                  tertiary
+                  size="tiny"
+                  @click="toggleKeyDisableStatus(key)"
+                  title="停用密钥"
+                  type="warning"
+                >
+                  停用
+                </n-button>
+                <n-button
+                  v-if="key.status !== 'active' && !key.is_disabled"
                   tertiary
                   size="tiny"
                   @click="restoreKey(key)"
@@ -1146,6 +1270,47 @@ function resetPage() {
 .page-info {
   font-size: 12px;
   color: #6c757d;
+}
+
+/* 备注相关样式 */
+.key-remarks {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.remarks-display {
+  cursor: pointer;
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.remarks-text {
+  color: #495057;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+  word-break: break-all;
+}
+
+.remarks-text:hover {
+  background-color: #f8f9fa;
+}
+
+.remarks-placeholder {
+  color: #9ca3af;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+  font-style: italic;
+}
+
+.remarks-placeholder:hover {
+  background-color: #f8f9fa;
+}
+
+.remarks-edit {
+  margin: 2px 0;
 }
 
 @media (max-width: 768px) {

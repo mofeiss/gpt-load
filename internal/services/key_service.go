@@ -354,3 +354,17 @@ func (s *KeyService) StreamKeysToWriter(groupID uint, statusFilter string, write
 
 	return err
 }
+
+// ToggleKeyDisableStatus 切换密钥的手动停用状态
+func (s *KeyService) ToggleKeyDisableStatus(groupID uint, keyValue string, isDisabled bool) error {
+	return s.DB.Model(&models.APIKey{}).
+		Where("group_id = ? AND key_value = ?", groupID, keyValue).
+		Update("is_disabled", isDisabled).Error
+}
+
+// UpdateKeyRemarks 更新密钥备注
+func (s *KeyService) UpdateKeyRemarks(groupID uint, keyValue string, remarks string) error {
+	return s.DB.Model(&models.APIKey{}).
+		Where("group_id = ? AND key_value = ?", groupID, keyValue).
+		Update("remarks", remarks).Error
+}

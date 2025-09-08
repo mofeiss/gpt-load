@@ -9,6 +9,7 @@ GPT-Load 是一个高性能、企业级的 AI API 透明代理服务，专为需
 ## 开发命令
 
 ### 后端开发 (Go)
+
 ```bash
 # 构建前端并运行服务器
 make run
@@ -21,6 +22,7 @@ go run ./main.go
 ```
 
 ### 前端开发 (Vue 3)
+
 ```bash
 cd web
 
@@ -48,7 +50,11 @@ npm run check-all
 ```
 
 ### Docker 开发
+
 ```bash
+# docker构建
+docker build -t gpt-load:latest . --no-cache
+
 # 使用 Docker Compose 启动
 docker compose up -d
 
@@ -62,6 +68,7 @@ docker compose down && docker compose up -d
 ## 架构概览
 
 ### 后端架构 (Go)
+
 - **依赖注入**: 使用 `go.uber.org/dig` 进行依赖注入管理
 - **分层架构**:
   - `internal/app/`: 应用程序生命周期管理
@@ -75,12 +82,14 @@ docker compose down && docker compose up -d
   - `internal/middleware/`: 中间件
 
 ### 核心组件
+
 - **代理服务器** (`internal/proxy/server.go`): 处理 AI API 请求转发
 - **密钥池** (`internal/keypool/`): 智能密钥管理和负载均衡
 - **渠道适配器** (`internal/channel/`): 支持 OpenAI、Gemini、Anthropic 格式
 - **配置管理** (`internal/config/`): 支持环境变量和动态配置热重载
 
 ### 前端架构 (Vue 3)
+
 - **框架**: Vue 3 + TypeScript + Vite
 - **UI 组件**: Naive UI
 - **状态管理**: Pinia (通过 `@vueuse/core`)
@@ -88,6 +97,7 @@ docker compose down && docker compose up -d
 - **构建工具**: Vite
 
 ### 路由结构
+
 - `/api/*`: 管理 API (需要认证)
 - `/proxy/{group_name}/*`: AI API 代理端点
 - `/health`: 健康检查
@@ -96,20 +106,25 @@ docker compose down && docker compose up -d
 ## 配置系统
 
 ### 环境变量配置
+
 项目使用 `.env` 文件配置基础设置：
+
 - `AUTH_KEY`: 管理界面认证密钥（必需）
 - `DATABASE_DSN`: 数据库连接字符串（默认 SQLite）
 - `REDIS_DSN`: Redis 连接字符串（可选，默认内存存储）
 - `PORT`: 服务端口（默认 3001）
 
 ### 动态配置
+
 系统支持运行时配置热重载：
+
 - 系统设置：全局行为配置
 - 组配置：特定组的覆盖配置
 - 配置优先级：组配置 > 系统设置 > 环境配置
 
 ### 密钥配置
-- **最大重试次数**: 单个请求使用不同 Key 的最大重试次数，0为不重试
+
+- **最大重试次数**: 单个请求使用不同 Key 的最大重试次数，0 为不重试
 - **重试间隔**: 请求错误后重试的间隔时间（毫秒），默认 100ms
 - **黑名单阈值**: Key 连续失败次数达到该值后进入黑名单
 - **密钥验证间隔**: 后台验证密钥的间隔时间（分钟）
@@ -117,6 +132,7 @@ docker compose down && docker compose up -d
 ## 数据库模式
 
 ### 核心模型
+
 - `SystemSetting`: 系统设置
 - `Group`: API 密钥组
 - `APIKey`: 具体的 API 密钥
@@ -124,6 +140,7 @@ docker compose down && docker compose up -d
 - `GroupHourlyStat`: 组小时统计
 
 ### 数据库支持
+
 - SQLite (默认)
 - MySQL
 - PostgreSQL
@@ -131,34 +148,40 @@ docker compose down && docker compose up -d
 ## 开发注意事项
 
 ### 后端开发
+
 - 使用依赖注入模式，通过 `dig` 容器管理服务
 - 遵循现有的错误处理模式，使用 `internal/errors/` 包
 - 新增功能需要考虑集群部署的兼容性（Master/Slave 架构）
 - 配置项需要支持热重载
 
 ### 前端开发
+
 - 使用 TypeScript 严格模式
 - 遵循现有的组件命名规范
 - API 调用使用 `web/src/api/` 中的封装函数
 - 状态管理使用 `@vueuse/core` 的响应式工具
 
 ### 代码质量
+
 - 后端：Go 1.23+，遵循 Go 标准代码风格
 - 前端：ESLint + Prettier + TypeScript 严格检查
 - 提交前运行 `make run` 确保完整构建
 
 ### 测试
+
 - 前端检查命令：`cd web && npm run check-all`
 - 后端暂时没有单元测试，但需要确保功能完整性
 
 ## 部署相关
 
 ### 生产部署
+
 - 使用 Docker 镜像：`ghcr.io/tbphp/gpt-load:latest`
 - 支持 Docker Compose 一键部署
 - 支持集群部署（需要共享数据库和 Redis）
 
 ### 环境变量安全
+
 - 生产环境必须修改 `AUTH_KEY` 为强密码
 - 不要使用默认的 `sk-123456` 密钥
 - 建议使用 `sk-proj-[32位随机字符串]` 格式

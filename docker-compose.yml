@@ -1,10 +1,10 @@
 version: "3.8"
 services:
   gpt-load:
-    image: gpt-load:latest  # 使用本地构建的镜像
-    # build:
-    #   context: .
-    #   dockerfile: Dockerfile
+    image: gpt-load:latest # 使用本地构建的镜像
+    #build:
+    #  context: .
+    #  dockerfile: Dockerfile
     container_name: gpt-load
     ports:
       - ${PORT:-3001}:${PORT:-3001}

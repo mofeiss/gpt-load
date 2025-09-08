@@ -6,7 +6,7 @@ export interface ApiResponse<T> {
 }
 
 // 密钥状态
-export type KeyStatus = "active" | "invalid" | undefined;
+export type KeyStatus = "active" | "invalid" | "disabled" | undefined;
 
 // 数据模型定义
 export interface APIKey {
@@ -14,6 +14,8 @@ export interface APIKey {
   group_id: number;
   key_value: string;
   status: KeyStatus;
+  is_disabled: boolean; // 手动停用标志
+  remarks: string;      // 备注信息
   request_count: number;
   failure_count: number;
   last_used_at?: string;

@@ -69,6 +69,20 @@ type ValidateGroupKeysRequest struct {
 	Status  string `json:"status,omitempty"`
 }
 
+// ToggleKeyDisableRequest defines the payload for toggling key disable status.
+type ToggleKeyDisableRequest struct {
+	GroupID    uint   `json:"group_id" binding:"required"`
+	KeyValue   string `json:"key_value" binding:"required"`
+	IsDisabled bool   `json:"is_disabled"`
+}
+
+// UpdateKeyRemarksRequest defines the payload for updating key remarks.
+type UpdateKeyRemarksRequest struct {
+	GroupID  uint   `json:"group_id" binding:"required"`
+	KeyValue string `json:"key_value" binding:"required"`
+	Remarks  string `json:"remarks"`
+}
+
 // AddMultipleKeys handles creating new keys from a text block within a specific group.
 func (s *Server) AddMultipleKeys(c *gin.Context) {
 	var req KeyTextRequest
@@ -425,4 +439,51 @@ func (s *Server) ExportKeys(c *gin.Context) {
 	if err != nil {
 		log.Printf("Failed to stream keys: %v", err)
 	}
+}
+
+// ToggleKeyDisableStatus 切换密钥的手动停用状态
+func (s *Server) ToggleKeyDisableStatus(c *gin.Context) {
+	var req ToggleKeyDisableRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInvalidJSON, err.Error()))
+		return
+	}
+
+	if _, ok := s.findGroupByID(c, req.GroupID); !ok {
+		return
+	}
+
+	err := s.KeyService.ToggleKeyDisableStatus(req.GroupID, req.KeyValue, req.IsDisabled)
+	if err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	action := "启用"
+	if req.IsDisabled {
+		action = "停用"
+	}
+	
+	response.Success(c, gin.H{"message": fmt.Sprintf("密钥已%s", action)})
+}
+
+// UpdateKeyRemarks 更新密钥备注
+func (s *Server) UpdateKeyRemarks(c *gin.Context) {
+	var req UpdateKeyRemarksRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInvalidJSON, err.Error()))
+		return
+	}
+
+	if _, ok := s.findGroupByID(c, req.GroupID); !ok {
+		return
+	}
+
+	err := s.KeyService.UpdateKeyRemarks(req.GroupID, req.KeyValue, req.Remarks)
+	if err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	response.Success(c, gin.H{"message": "备注更新成功"})
 }
