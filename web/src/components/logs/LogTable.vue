@@ -660,39 +660,41 @@ const selectedCount = computed(() => selectedLogIds.value.length);
             :header-style="{ padding: '8px 12px', fontSize: '13px' }"
           >
             <div class="compact-fields">
-              <div class="compact-field" v-if="selectedLog.request_path">
-                <div class="compact-field-header">
-                  <span class="compact-field-title">请求路径</span>
-                  <n-button
-                    size="tiny"
-                    text
-                    @click="copyContent(selectedLog.request_path, '请求路径')"
-                  >
-                    <template #icon>
-                      <n-icon :component="CopyOutline" />
-                    </template>
-                  </n-button>
+              <div class="compact-field-row" v-if="selectedLog.request_path || selectedLog.upstream_addr">
+                <div class="compact-field-half" v-if="selectedLog.request_path">
+                  <div class="compact-field-header">
+                    <span class="compact-field-title">请求路径</span>
+                    <n-button
+                      size="tiny"
+                      text
+                      @click="copyContent(selectedLog.request_path, '请求路径')"
+                    >
+                      <template #icon>
+                        <n-icon :component="CopyOutline" />
+                      </template>
+                    </n-button>
+                  </div>
+                  <div class="compact-field-content">
+                    {{ selectedLog.request_path }}
+                  </div>
                 </div>
-                <div class="compact-field-content">
-                  {{ selectedLog.request_path }}
-                </div>
-              </div>
 
-              <div class="compact-field" v-if="selectedLog.upstream_addr">
-                <div class="compact-field-header">
-                  <span class="compact-field-title">上游地址</span>
-                  <n-button
-                    size="tiny"
-                    text
-                    @click="copyContent(selectedLog.upstream_addr, '上游地址')"
-                  >
-                    <template #icon>
-                      <n-icon :component="CopyOutline" />
-                    </template>
-                  </n-button>
-                </div>
-                <div class="compact-field-content">
-                  {{ selectedLog.upstream_addr }}
+                <div class="compact-field-half" v-if="selectedLog.upstream_addr">
+                  <div class="compact-field-header">
+                    <span class="compact-field-title">上游地址</span>
+                    <n-button
+                      size="tiny"
+                      text
+                      @click="copyContent(selectedLog.upstream_addr, '上游地址')"
+                    >
+                      <template #icon>
+                        <n-icon :component="CopyOutline" />
+                      </template>
+                    </n-button>
+                  </div>
+                  <div class="compact-field-content">
+                    {{ selectedLog.upstream_addr }}
+                  </div>
                 </div>
               </div>
 
@@ -727,7 +729,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                     </template>
                   </n-button>
                 </div>
-                <div class="compact-field-content">
+                <div class="compact-field-content compact-field-content-large">
                   {{ formatJsonString(selectedLog.request_body) }}
                 </div>
               </div>
@@ -755,7 +757,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                     </template>
                   </n-button>
                 </div>
-                <div class="compact-field-content">
+                <div class="compact-field-content compact-field-content-large">
                   {{ formatJsonString(selectedLog.response_body) }}
                 </div>
               </div>
@@ -1051,6 +1053,23 @@ const selectedCount = computed(() => selectedLogIds.value.length);
   color: #6c757d;
   max-height: 100px;
   overflow-y: auto;
+}
+
+.compact-field-content-large {
+  max-height: 200px;
+}
+
+.compact-field-row {
+  display: flex;
+  gap: 6px;
+}
+
+.compact-field-half {
+  flex: 1;
+  border: 1px solid #e9ecef;
+  border-radius: 3px;
+  padding: 6px;
+  background: #f8f9fa;
 }
 
 .detail-field {
