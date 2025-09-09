@@ -41,6 +41,17 @@ watch(
   { immediate: true }
 );
 
+// 添加额外的监听器来处理路由变化（包括直接URL访问）
+watch(
+  () => route.name,
+  (newRouteName) => {
+    if (newRouteName && typeof newRouteName === "string") {
+      localStorage.setItem("lastActiveView", newRouteName);
+    }
+  },
+  { immediate: true }
+);
+
 function renderMenuItem(key: string, label: string, icon: string): MenuOption {
   return {
     label: () =>

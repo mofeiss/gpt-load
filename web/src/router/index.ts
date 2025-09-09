@@ -56,14 +56,20 @@ router.beforeEach((to, _from, next) => {
   next();
 });
 
-// 应用启动时检查 localStorage 中的保存视图并跳转
-const savedView = localStorage.getItem("lastActiveView");
-if (
-  savedView &&
-  savedView !== router.currentRoute.value.name &&
-  router.currentRoute.value.path === "/"
-) {
-  router.push({ name: savedView });
-}
+// 延迟恢复导航状态，确保路由已经完全初始化
+setTimeout(() => {
+  const savedView = localStorage.getItem("lastActiveView");
+  const currentRoute = router.currentRoute.value;
+  
+  // 检查是否需要恢复视图
+  if (
+    savedView &&
+    savedView !== currentRoute.name &&
+    // 在主页路径才需要恢复，避免干扰其他页面访问
+    (currentRoute.path === "/" || currentRoute.path === "/index.html" || currentRoute.name === "dashboard")
+  ) {
+    router.push({ name: savedView });
+  }
+}, 0);
 
 export default router;
