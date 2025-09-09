@@ -257,7 +257,18 @@ const createColumns = () => [
 const columns = createColumns();
 
 // Lifecycle and Watchers
-onMounted(loadLogs);
+onMounted(() => {
+  // 从 localStorage 恢复自动刷新状态
+  const savedAutoRefresh = localStorage.getItem("autoRefreshEnabled");
+  if (savedAutoRefresh === "true") {
+    autoRefresh.value = true;
+    refreshInterval.value = window.setInterval(() => {
+      loadLogs();
+    }, 1000);
+  }
+
+  loadLogs();
+});
 onUnmounted(() => {
   if (refreshInterval.value) {
     clearInterval(refreshInterval.value);
@@ -330,6 +341,10 @@ const deleteLogs = async () => {
 // 自动刷新控制函数
 const toggleAutoRefresh = (checked: boolean) => {
   autoRefresh.value = checked;
+
+  // 保存自动刷新状态到 localStorage
+  localStorage.setItem("autoRefreshEnabled", checked ? "true" : "false");
+
   if (checked) {
     refreshInterval.value = window.setInterval(() => {
       loadLogs();
@@ -472,7 +487,7 @@ function changePageSize(size: number) {
                   <n-checkbox v-model:checked="autoRefresh" @update:checked="toggleAutoRefresh">
                     自动刷新
                   </n-checkbox>
-                  <n-button v-if="autoRefresh" size="tiny" type="info" ghost @click="loadLogs">
+                  <n-button size="tiny" type="info" ghost @click="loadLogs">
                     <template #icon>
                       <n-icon :component="RefreshOutline" />
                     </template>

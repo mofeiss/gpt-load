@@ -44,7 +44,7 @@ watch(
 // 添加额外的监听器来处理路由变化（包括直接URL访问）
 watch(
   () => route.name,
-  (newRouteName) => {
+  newRouteName => {
     if (newRouteName && typeof newRouteName === "string") {
       localStorage.setItem("lastActiveView", newRouteName);
     }

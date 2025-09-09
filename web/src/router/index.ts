@@ -60,13 +60,15 @@ router.beforeEach((to, _from, next) => {
 setTimeout(() => {
   const savedView = localStorage.getItem("lastActiveView");
   const currentRoute = router.currentRoute.value;
-  
+
   // 检查是否需要恢复视图
   if (
     savedView &&
     savedView !== currentRoute.name &&
     // 在主页路径才需要恢复，避免干扰其他页面访问
-    (currentRoute.path === "/" || currentRoute.path === "/index.html" || currentRoute.name === "dashboard")
+    (currentRoute.path === "/" ||
+      currentRoute.path === "/index.html" ||
+      currentRoute.name === "dashboard")
   ) {
     router.push({ name: savedView });
   }
