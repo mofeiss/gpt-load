@@ -19,6 +19,10 @@ make dev
 
 # 直接运行后端（需要先构建前端）
 go run ./main.go
+
+# 依赖管理
+go mod tidy
+go mod download
 ```
 
 ### 前端开发 (Vue 3)
@@ -44,9 +48,13 @@ npm run type-check
 
 # 格式化
 npm run format
+npm run format:check
 
 # 全面检查
 npm run check-all
+
+# 清理构建文件
+npm run clean
 ```
 
 ### Docker 开发
@@ -92,9 +100,12 @@ docker compose down && docker compose up -d
 
 - **框架**: Vue 3 + TypeScript + Vite
 - **UI 组件**: Naive UI
-- **状态管理**: Pinia (通过 `@vueuse/core`)
+- **状态管理**: 使用 `@vueuse/core` 的响应式工具
 - **路由**: Vue Router 4
 - **构建工具**: Vite
+- **HTTP 客户端**: Axios
+- **图标**: @vicons/ionicons5
+- **数据压缩**: pako（用于日志数据解压）
 
 ### 路由结构
 
@@ -102,6 +113,14 @@ docker compose down && docker compose up -d
 - `/proxy/{group_name}/*`: AI API 代理端点
 - `/health`: 健康检查
 - 其他: 前端静态资源
+
+### 依赖注入系统
+
+Go 后端使用 `go.uber.org/dig` 进行依赖注入管理：
+
+- **App 结构** (`internal/app/app.go`): 应用程序生命周期管理
+- **服务容器**: 通过 `dig.In` 和 `dig.Out` 自动注入依赖
+- **核心服务**: ConfigManager、GroupManager、KeyPoolProvider、ProxyServer 等
 
 ## 配置系统
 
@@ -155,19 +174,25 @@ docker compose down && docker compose up -d
 - 这会杀死 Docker 进程，中断所有服务包括我们的 API 连接
 - 如果需要调试，请使用环境变量设置新端口，不要杀死现有进程
 
+**⚠️ 开发限制**
+- 当前项目你只能构建和编译检查错误，绝对不能运行该项目
+- 如果写完了代码需要调试验证修改是否生效，请将这个任务交给用户，立刻停止输出
+
 ### 后端开发
 
 - 使用依赖注入模式，通过 `dig` 容器管理服务
-- 遵循现有的错误处理模式，使用 `internal/errors/` 包
+- 遵循现有的错误处理模式，错误处理在 `internal/response/` 包中
 - 新增功能需要考虑集群部署的兼容性（Master/Slave 架构）
-- 配置项需要支持热重载
+- 配置项需要支持热重载，通过 `internal/config/` 包管理
+- HTTP 客户端使用 `internal/httpclient/manager.go` 统一管理
 
 ### 前端开发
 
 - 使用 TypeScript 严格模式
 - 遵循现有的组件命名规范
 - API 调用使用 `web/src/api/` 中的封装函数
-- 状态管理使用 `@vueuse/core` 的响应式工具
+- 状态管理使用 `@vueuse/core` 的响应式工具，而非传统的 Pinia
+- 组件结构：视图组件在 `web/src/views/`，通用组件在 `web/src/components/`
 
 ### 代码质量
 

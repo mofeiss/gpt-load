@@ -22,9 +22,7 @@ type SystemSettings struct {
 	ProxyKeys                      string `json:"proxy_keys" name:"全局代理密钥" category:"基础参数" desc:"全局代理密钥，用于访问所有分组的代理端点。多个密钥请用逗号分隔。" validate:"required"`
 	RequestLogRetentionDays        int    `json:"request_log_retention_days" default:"7" name:"日志保留时长（天）" category:"基础参数" desc:"请求日志在数据库中的保留天数，0为不清理日志。" validate:"required,min=0"`
 	RequestLogWriteIntervalMinutes int    `json:"request_log_write_interval_minutes" default:"1" name:"日志延迟写入周期（分钟）" category:"基础参数" desc:"请求日志从缓存写入数据库的周期（分钟），0为实时写入数据。" validate:"required,min=0"`
-	EnableRequestBodyLogging       bool   `json:"enable_request_body_logging" default:"true" name:"启用请求日志详情" category:"基础参数" desc:"是否在请求日志中记录完整的请求体内容。启用此功能会增加内存以及存储空间的占用。"`
 	MaxRequestBodyLogSize         int    `json:"max_request_body_log_size" default:"1048576" name:"请求日志最大大小（字节）" category:"基础参数" desc:"单次请求体记录的最大字节数，默认1MB，超出部分将被截断。" validate:"required,min=1024"`
-	EnableResponseBodyLogging      bool   `json:"enable_response_body_logging" default:"true" name:"启用响应日志详情" category:"基础参数" desc:"是否在请求日志中记录完整的响应体内容。启用此功能会增加内存以及存储空间的占用。"`
 	MaxResponseBodyLogSize         int    `json:"max_response_body_log_size" default:"1048576" name:"响应日志最大大小（字节）" category:"基础参数" desc:"单次请求响应体记录的最大字节数，默认1MB，超出部分将被截断。" validate:"required,min=1024"`
 
 	// 请求设置

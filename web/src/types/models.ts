@@ -116,6 +116,14 @@ export interface TaskInfo {
   error?: string;
 }
 
+// 流式响应解析内容
+export interface StreamContent {
+  thinking_chain: string;
+  text_messages: string;
+  tool_calls: string;
+  raw_content: string;
+}
+
 // Based on backend response
 export interface RequestLog {
   id: string;
@@ -137,6 +145,7 @@ export interface RequestLog {
   is_stream: boolean;
   request_body?: string;
   response_body?: string;
+  stream_content?: StreamContent;
 }
 
 export interface Pagination {

@@ -233,14 +233,23 @@ func (ps *ProxyServer) executeRequestWithRetry(
 	}
 	c.Status(resp.StatusCode)
 
+	logrus.Debugf("【插桩日志】开始处理响应体，流式请求: %v, 组: %s", isStream, group.Name)
+	
 	var responseBody string
+	var streamContent *models.StreamContent
 	if isStream {
-		responseBody = ps.handleStreamingResponse(c, resp, group)
+		logrus.Debugf("【插桩日志】调用handleStreamingResponse处理流式响应")
+		responseBody, streamContent = ps.handleStreamingResponse(c, resp, group)
+		logrus.Debugf("【插桩日志】handleStreamingResponse完成，响应体长度: %d", len(responseBody))
 	} else {
-		responseBody = ps.handleNormalResponse(c, resp, group)
+		logrus.Debugf("【插桩日志】调用handleNormalResponse处理普通响应")
+		responseBody, _ = ps.handleNormalResponse(c, resp, group)
+		logrus.Debugf("【插桩日志】handleNormalResponse完成，响应体长度: %d", len(responseBody))
 	}
 
-	ps.logRequest(c, group, apiKey, startTime, resp.StatusCode, nil, isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal, responseBody)
+	logrus.Debugf("【插桩日志】准备记录请求日志，响应体长度: %d, 流式内容: %v", len(responseBody), streamContent != nil)
+	ps.logRequestWithStreamContent(c, group, apiKey, startTime, resp.StatusCode, nil, isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal, responseBody, streamContent)
+	logrus.Debugf("【插桩日志】请求日志记录完成")
 }
 
 // logRequest is a helper function to create and record a request log.
@@ -264,10 +273,8 @@ func (ps *ProxyServer) logRequest(
 
 	var requestBodyToLog, userAgent string
 
-	if group.EffectiveConfig.EnableRequestBodyLogging {
-		requestBodyToLog = utils.TruncateString(string(bodyBytes), group.EffectiveConfig.MaxRequestBodyLogSize)
-		userAgent = c.Request.UserAgent()
-	}
+	requestBodyToLog = utils.TruncateString(string(bodyBytes), group.EffectiveConfig.MaxRequestBodyLogSize)
+	userAgent = c.Request.UserAgent()
 
 	duration := time.Since(startTime).Milliseconds()
 
@@ -301,5 +308,74 @@ func (ps *ProxyServer) logRequest(
 
 	if err := ps.requestLogService.Record(logEntry); err != nil {
 		logrus.Errorf("Failed to record request log: %v", err)
+	}
+}
+
+// logRequestWithStreamContent is a helper function to create and record a request log with stream content.
+func (ps *ProxyServer) logRequestWithStreamContent(
+	c *gin.Context,
+	group *models.Group,
+	apiKey *models.APIKey,
+	startTime time.Time,
+	statusCode int,
+	finalError error,
+	isStream bool,
+	upstreamAddr string,
+	channelHandler channel.ChannelProxy,
+	bodyBytes []byte,
+	requestType string,
+	responseBody string,
+	streamContent *models.StreamContent,
+) {
+	logrus.Debugf("【插桩日志】logRequestWithStreamContent开始，组: %s, 状态码: %d, 流式: %v, 响应体长度: %d", group.Name, statusCode, isStream, len(responseBody))
+	
+	if ps.requestLogService == nil {
+		logrus.Error("【插桩日志】requestLogService为nil，无法记录日志！")
+		return
+	}
+	
+	logrus.Debugf("【插桩日志】requestLogService可用，开始构建日志条目")
+
+	var requestBodyToLog, userAgent string
+
+	requestBodyToLog = utils.TruncateString(string(bodyBytes), group.EffectiveConfig.MaxRequestBodyLogSize)
+	userAgent = c.Request.UserAgent()
+
+	duration := time.Since(startTime).Milliseconds()
+
+	logEntry := &models.RequestLog{
+		GroupID:       group.ID,
+		GroupName:     group.Name,
+		IsSuccess:     finalError == nil && statusCode < 400,
+		SourceIP:      c.ClientIP(),
+		StatusCode:    statusCode,
+		RequestPath:   utils.TruncateString(c.Request.URL.String(), 500),
+		Duration:      duration,
+		UserAgent:     userAgent,
+		RequestType:   requestType,
+		IsStream:      isStream,
+		UpstreamAddr:  utils.TruncateString(upstreamAddr, 500),
+		RequestBody:   requestBodyToLog,
+		ResponseBody:  utils.TruncateString(responseBody, 65000),
+		StreamContent: streamContent,
+	}
+
+	if channelHandler != nil && bodyBytes != nil {
+		logEntry.Model = channelHandler.ExtractModel(c, bodyBytes)
+	}
+
+	if apiKey != nil {
+		logEntry.KeyValue = apiKey.KeyValue
+	}
+
+	if finalError != nil {
+		logEntry.ErrorMessage = finalError.Error()
+	}
+
+	logrus.Debugf("【插桩日志】准备调用requestLogService.Record，日志条目ID: %s", logEntry.ID)
+	if err := ps.requestLogService.Record(logEntry); err != nil {
+		logrus.Errorf("【插桩日志】记录请求日志失败: %v", err)
+	} else {
+		logrus.Debugf("【插桩日志】请求日志成功记录到数据库，ID: %s", logEntry.ID)
 	}
 }

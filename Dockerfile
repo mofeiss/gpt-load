@@ -1,9 +1,10 @@
 # 前端构建阶段
 FROM node:20-alpine AS frontend-builder
 
-# 更新系统并安装证书
-RUN apk update && apk upgrade && \
-    apk add --no-cache ca-certificates && \
+# 更新系统并安装证书 - 跳过SSL验证
+RUN apk --no-check-certificate update && \
+    apk --no-check-certificate upgrade && \
+    apk --no-check-certificate add --no-cache ca-certificates && \
     update-ca-certificates
 
 ARG VERSION=1.0.0
@@ -44,10 +45,17 @@ RUN VITE_VERSION=${VERSION} npm run build
 # Go后端构建阶段
 FROM golang:alpine AS backend-builder
 
+# 安装证书和配置代理
+RUN apk --no-check-certificate update && \
+    apk --no-check-certificate add --no-cache ca-certificates git && \
+    update-ca-certificates
+
 ARG VERSION=1.0.0
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
-    GOOS=linux
+    GOOS=linux \
+    GOPROXY=https://goproxy.cn,https://proxy.golang.org,direct \
+    GOSUMDB=sum.golang.google.cn
 
 WORKDIR /build
 
@@ -70,9 +78,10 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# 安装运行时依赖
-RUN apk upgrade --no-cache && \
-    apk add --no-cache ca-certificates tzdata && \
+# 安装运行时依赖 - 先安装证书包，跳过SSL验证
+RUN apk --no-check-certificate update && \
+    apk --no-check-certificate upgrade --no-cache && \
+    apk --no-check-certificate add --no-cache ca-certificates tzdata && \
     update-ca-certificates
 
 # 复制构建好的应用

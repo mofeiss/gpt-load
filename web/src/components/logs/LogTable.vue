@@ -4,6 +4,7 @@ import type { LogFilter, RequestLog } from "@/types/models";
 import { copy } from "@/utils/clipboard";
 import { maskKey } from "@/utils/display";
 import { tryGzipDecode, isLikelyGzipData } from "@/utils/gzip";
+import StreamContentDisplay from "./StreamContentDisplay.vue";
 import {
   CopyOutline,
   DocumentTextOutline,
@@ -785,7 +786,15 @@ const selectedCount = computed(() => selectedLogIds.value.length);
             size="small"
             :header-style="{ padding: '8px 12px', fontSize: '13px' }"
           >
-            <div class="compact-fields">
+            <!-- 流式响应：双列布局 -->
+            <stream-content-display
+              v-if="selectedLog.is_stream"
+              :stream-content="selectedLog.stream_content"
+              :raw-content="selectedLog.response_body"
+            />
+
+            <!-- 非流式响应：单列显示原文 -->
+            <div v-else class="compact-fields">
               <div class="compact-field">
                 <div class="compact-field-header">
                   <span class="compact-field-title">响应内容</span>

@@ -1,6 +1,9 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
 	"gpt-load/internal/types"
 	"time"
 
@@ -38,8 +41,6 @@ type GroupConfig struct {
 	KeyValidationIntervalMinutes *int    `json:"key_validation_interval_minutes,omitempty"`
 	KeyValidationConcurrency     *int    `json:"key_validation_concurrency,omitempty"`
 	KeyValidationTimeoutSeconds  *int    `json:"key_validation_timeout_seconds,omitempty"`
-	EnableRequestBodyLogging     *bool   `json:"enable_request_body_logging,omitempty"`
-	EnableResponseBodyLogging    *bool   `json:"enable_response_body_logging,omitempty"`
 	MaxResponseBodyLogSize       *int    `json:"max_response_body_log_size,omitempty"`
 	RetryIntervalMs              *int    `json:"retry_interval_ms,omitempty"`
 }
@@ -99,26 +100,62 @@ const (
 	RequestTypeFinal = "final"
 )
 
+// StreamContent 存储流式响应解析内容
+type StreamContent struct {
+	ThinkingChain string `json:"thinking_chain"`   // 思维链内容
+	TextMessages  string `json:"text_messages"`    // 文本消息
+	ToolCalls     string `json:"tool_calls"`       // 工具调用 JSON
+	RawContent   string `json:"raw_content"`     // 原始内容
+}
+
+// Value 实现 driver.Valuer 接口，用于数据库存储
+func (sc StreamContent) Value() (driver.Value, error) {
+	if sc.ThinkingChain == "" && sc.TextMessages == "" && sc.ToolCalls == "" && sc.RawContent == "" {
+		return nil, nil
+	}
+	return json.Marshal(sc)
+}
+
+// Scan 实现 sql.Scanner 接口，用于从数据库读取
+func (sc *StreamContent) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return fmt.Errorf("cannot scan %T into StreamContent", value)
+	}
+	
+	return json.Unmarshal(bytes, sc)
+}
+
 // RequestLog 对应 request_logs 表
 type RequestLog struct {
-	ID           string    `gorm:"type:varchar(36);primaryKey" json:"id"`
-	Timestamp    time.Time `gorm:"not null;index" json:"timestamp"`
-	GroupID      uint      `gorm:"not null;index" json:"group_id"`
-	GroupName    string    `gorm:"type:varchar(255);index" json:"group_name"`
-	KeyValue     string    `gorm:"type:varchar(700)" json:"key_value"`
-	Model        string    `gorm:"type:varchar(255);index" json:"model"`
-	IsSuccess    bool      `gorm:"not null" json:"is_success"`
-	SourceIP     string    `gorm:"type:varchar(64)" json:"source_ip"`
-	StatusCode   int       `gorm:"not null" json:"status_code"`
-	RequestPath  string    `gorm:"type:varchar(500)" json:"request_path"`
-	Duration     int64     `gorm:"not null" json:"duration_ms"`
-	ErrorMessage string    `gorm:"type:text" json:"error_message"`
-	UserAgent    string    `gorm:"type:varchar(512)" json:"user_agent"`
-	RequestType  string    `gorm:"type:varchar(20);not null;default:'final';index" json:"request_type"`
-	UpstreamAddr string    `gorm:"type:varchar(500)" json:"upstream_addr"`
-	IsStream     bool      `gorm:"not null" json:"is_stream"`
-	RequestBody  string    `gorm:"type:text" json:"request_body"`
-	ResponseBody string    `gorm:"type:text" json:"response_body"`
+	ID           string       `gorm:"type:varchar(36);primaryKey" json:"id"`
+	Timestamp    time.Time    `gorm:"not null;index" json:"timestamp"`
+	GroupID      uint         `gorm:"not null;index" json:"group_id"`
+	GroupName    string       `gorm:"type:varchar(255);index" json:"group_name"`
+	KeyValue     string       `gorm:"type:varchar(700)" json:"key_value"`
+	Model        string       `gorm:"type:varchar(255);index" json:"model"`
+	IsSuccess    bool         `gorm:"not null" json:"is_success"`
+	SourceIP     string       `gorm:"type:varchar(64)" json:"source_ip"`
+	StatusCode   int          `gorm:"not null" json:"status_code"`
+	RequestPath  string       `gorm:"type:varchar(500)" json:"request_path"`
+	Duration     int64        `gorm:"not null" json:"duration_ms"`
+	ErrorMessage string       `gorm:"type:text" json:"error_message"`
+	UserAgent    string       `gorm:"type:varchar(512)" json:"user_agent"`
+	RequestType  string       `gorm:"type:varchar(20);not null;default:'final';index" json:"request_type"`
+	UpstreamAddr string       `gorm:"type:varchar(500)" json:"upstream_addr"`
+	IsStream     bool         `gorm:"not null" json:"is_stream"`
+	RequestBody  string       `gorm:"type:text" json:"request_body"`
+	ResponseBody string       `gorm:"type:text" json:"response_body"`
+	StreamContent *StreamContent `gorm:"type:json;null" json:"stream_content,omitempty"`
 }
 
 // StatCard 用于仪表盘的单个统计卡片数据
