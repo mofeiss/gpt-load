@@ -3,6 +3,7 @@ import { logApi } from "@/api/logs";
 import type { LogFilter, RequestLog } from "@/types/models";
 import { copy } from "@/utils/clipboard";
 import { maskKey } from "@/utils/display";
+import { tryGzipDecode, isLikelyGzipData } from "@/utils/gzip";
 import {
   CopyOutline,
   DocumentTextOutline,
@@ -152,14 +153,22 @@ const closeDetailModal = () => {
   selectedLog.value = null;
 };
 
-const formatJsonString = (jsonStr: string) => {
+const formatJsonString = (jsonStr: string, tryDecompress = true) => {
   if (!jsonStr) {
     return "";
   }
+  
+  let processedStr = jsonStr;
+  
+  // 如果启用解压且看起来像 gzip 数据，则尝试解压
+  if (tryDecompress && isLikelyGzipData(jsonStr)) {
+    processedStr = tryGzipDecode(jsonStr);
+  }
+  
   try {
-    return JSON.stringify(JSON.parse(jsonStr), null, 2);
+    return JSON.stringify(JSON.parse(processedStr), null, 2);
   } catch {
-    return jsonStr;
+    return processedStr;
   }
 };
 
@@ -755,7 +764,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                   <n-button
                     size="tiny"
                     text
-                    @click="copyContent(formatJsonString(selectedLog.response_body), '响应内容')"
+                    @click="copyContent(formatJsonString(selectedLog.response_body, true), '响应内容')"
                   >
                     <template #icon>
                       <n-icon :component="CopyOutline" />
@@ -763,7 +772,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                   </n-button>
                 </div>
                 <div class="compact-field-content compact-field-content-large">
-                  {{ formatJsonString(selectedLog.response_body) }}
+                  {{ formatJsonString(selectedLog.response_body, true) }}
                 </div>
               </div>
             </div>
