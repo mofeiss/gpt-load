@@ -403,6 +403,9 @@ func (sm *SystemSettingsManager) DisplaySystemConfig(settings types.SystemSettin
 	if settings.EnableResponseBodyLogging {
 		logrus.Infof("    Max Response Body Log Size: %d bytes (%.1fMB)", settings.MaxResponseBodyLogSize, float64(settings.MaxResponseBodyLogSize)/1048576)
 	}
+	if settings.EnableRequestBodyLogging {
+		logrus.Infof("    Max Request Body Log Size: %d bytes (%.1fMB)", settings.MaxRequestBodyLogSize, float64(settings.MaxRequestBodyLogSize)/1048576)
+	}
 
 	logrus.Info("  --- Request Behavior ---")
 	logrus.Infof("    Request Timeout: %d seconds", settings.RequestTimeout)

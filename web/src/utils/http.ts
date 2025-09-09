@@ -35,7 +35,9 @@ http.interceptors.response.use(
   response => {
     appState.loading = false;
     if (response.config.method !== "get" && !response.config.hideMessage) {
-      window.$message.success(response.data.message ?? "操作成功");
+      window.$message.success(response.data.message ?? "操作成功", {
+        duration: 3000,
+      });
     }
     return response.data;
   },
@@ -51,13 +53,17 @@ http.interceptors.response.use(
       }
       window.$message.error(error.response.data?.message || `请求失败: ${error.response.status}`, {
         keepAliveOnHover: true,
-        duration: 5000,
+        duration: 3000,
         closable: true,
       });
     } else if (error.request) {
-      window.$message.error("网络错误，请检查您的连接");
+      window.$message.error("网络错误，请检查您的连接", {
+        duration: 3000,
+      });
     } else {
-      window.$message.error("请求设置错误");
+      window.$message.error("请求设置错误", {
+        duration: 3000,
+      });
     }
     return Promise.reject(error);
   }
