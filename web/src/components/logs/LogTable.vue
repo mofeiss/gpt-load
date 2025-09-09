@@ -3,37 +3,39 @@ import { logApi } from "@/api/logs";
 import type { LogFilter, RequestLog } from "@/types/models";
 import { copy } from "@/utils/clipboard";
 import { maskKey } from "@/utils/display";
-import { tryGzipDecode, isLikelyGzipData } from "@/utils/gzip";
-import StreamContentDisplay from "./StreamContentDisplay.vue";
+import { isLikelyGzipData, tryGzipDecode } from "@/utils/gzip";
 import {
+  AlertCircleOutline,
   CopyOutline,
   DocumentTextOutline,
   DownloadOutline,
   EyeOffOutline,
   EyeOutline,
+  RefreshOutline,
   Search,
   TrashOutline,
-  RefreshOutline,
-  AlertCircleOutline,
 } from "@vicons/ionicons5";
 import {
   NButton,
   NCard,
+  NCheckbox,
+  NCollapse,
+  NCollapseItem,
   NDataTable,
   NDatePicker,
   NEllipsis,
   NIcon,
   NInput,
   NModal,
+  NPopconfirm,
   NSelect,
   NSpace,
   NSpin,
   NTag,
-  NCheckbox,
-  NPopconfirm,
   useMessage,
 } from "naive-ui";
 import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import StreamContentDisplay from "./StreamContentDisplay.vue";
 
 // Message instance
 const message = useMessage();
@@ -61,6 +63,36 @@ const refreshInterval = ref<number | null>(null);
 // Modal for viewing request/response details
 const showDetailModal = ref(false);
 const selectedLog = ref<LogRow | null>(null);
+
+// 请求信息折叠控制
+const isRequestInfoCollapsed = ref(false);
+const expandedNames = computed({
+  get: () => isRequestInfoCollapsed.value ? [] : ['request-info'],
+  set: (names: Array<string | number>) => {
+    isRequestInfoCollapsed.value = !names.includes('request-info');
+    saveRequestInfoCollapseState();
+  }
+});
+
+// 从localStorage恢复折叠状态
+const loadRequestInfoCollapseState = () => {
+  const stored = localStorage.getItem("requestInfoCollapsed");
+  if (stored !== null) {
+    isRequestInfoCollapsed.value = JSON.parse(stored);
+  }
+};
+
+// 保存折叠状态到localStorage
+const saveRequestInfoCollapseState = () => {
+  localStorage.setItem("requestInfoCollapsed", JSON.stringify(isRequestInfoCollapsed.value));
+};
+
+
+// 处理checkbox状态变化
+const handleCheckboxChange = (checked: boolean) => {
+  isRequestInfoCollapsed.value = checked;
+  saveRequestInfoCollapseState();
+};
 
 // Filters
 const filters = reactive({
@@ -146,14 +178,15 @@ const toggleKeyVisibility = (row: LogRow) => {
 };
 
 const viewLogDetails = (row: LogRow) => {
+  console.log("【前端插桩】点击查看详情，原始数据:", row);
+  console.log("【前端插桩】流式响应状态:", row.is_stream);
+  console.log("【前端插桩】响应体长度:", row.response_body?.length || 0);
+  console.log("【前端插桩】stream_content 数据:", row.stream_content);
+
   selectedLog.value = row;
   showDetailModal.value = true;
 };
 
-const closeDetailModal = () => {
-  showDetailModal.value = false;
-  selectedLog.value = null;
-};
 
 const formatJsonString = (jsonStr: string, tryDecompress = true) => {
   if (!jsonStr) {
@@ -290,6 +323,9 @@ onMounted(() => {
       loadLogs();
     }, 1000);
   }
+
+  // 恢复请求信息折叠状态
+  loadRequestInfoCollapseState();
 
   loadLogs();
 });
@@ -544,6 +580,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                     <template #icon>
                       <n-icon :component="RefreshOutline" />
                     </template>
+                    刷新
                   </n-button>
                 </div>
               </div>
@@ -608,15 +645,35 @@ const selectedCount = computed(() => selectedLogIds.value.length);
     </n-space>
 
     <!-- 详情模态框 -->
-    <n-modal v-model:show="showDetailModal" preset="card" style="width: 1000px" title="请求详情">
-      <div v-if="selectedLog" style="max-height: 65vh; overflow-y: auto">
-        <n-space vertical size="small">
-          <!-- 基本信息 -->
-          <n-card
+    <n-modal
+      v-model:show="showDetailModal"
+      preset="card"
+      style="width: 1200px"
+      title="请求详情"
+      :show-close="false"
+      :mask-closable="true"
+    >
+      <template #header-extra>
+        <n-space align="center" size="small">
+          <n-checkbox
+            v-model:checked="isRequestInfoCollapsed"
+            @update:checked="handleCheckboxChange"
+            size="small"
+          >
+            收缩请求信息
+          </n-checkbox>
+        </n-space>
+      </template>
+      <div v-if="selectedLog" class="modal-content-container">
+        <div class="modal-content-flex">
+          <!-- 头部信息区域(固定高度) -->
+          <div class="modal-header-section">
+            <!-- 基本信息 -->
+            <n-card
             title="基本信息"
             size="small"
             :header-style="{ padding: '8px 12px', fontSize: '13px' }"
-          >
+            >
             <div class="detail-grid-compact">
               <div class="detail-item-compact">
                 <span class="detail-label-compact">时间:</span>
@@ -693,24 +750,60 @@ const selectedCount = computed(() => selectedLogIds.value.length);
             </div>
           </n-card>
 
-          <!-- 请求信息 (紧凑布局) -->
-          <n-card
-            title="请求信息"
-            size="small"
-            :header-style="{ padding: '8px 12px', fontSize: '13px' }"
+          <!-- 请求信息 (折叠组件) -->
+          <n-collapse
+            v-model:expanded-names="expandedNames"
           >
-            <div class="compact-fields">
-              <div
-                class="compact-field-row"
-                v-if="selectedLog.request_path || selectedLog.upstream_addr"
-              >
-                <div class="compact-field-half" v-if="selectedLog.request_path">
+            <n-collapse-item title="请求信息" name="request-info">
+              <div class="compact-fields">
+                <div
+                  class="compact-field-row"
+                  v-if="selectedLog.request_path || selectedLog.upstream_addr"
+                >
+                  <div class="compact-field-half" v-if="selectedLog.request_path">
+                    <div class="compact-field-header">
+                      <span class="compact-field-title">请求路径</span>
+                      <n-button
+                        size="tiny"
+                        text
+                        @click="copyContent(selectedLog.request_path, '请求路径')"
+                      >
+                        <template #icon>
+                          <n-icon :component="CopyOutline" />
+                        </template>
+                      </n-button>
+                    </div>
+                    <div class="compact-field-content">
+                      {{ selectedLog.request_path }}
+                    </div>
+                  </div>
+
+                  <div class="compact-field-half" v-if="selectedLog.upstream_addr">
+                    <div class="compact-field-header">
+                      <span class="compact-field-title">上游地址</span>
+                      <n-button
+                        size="tiny"
+                        text
+                        @click="copyContent(selectedLog.upstream_addr, '上游地址')"
+                      >
+                        <template #icon>
+                          <n-icon :component="CopyOutline" />
+                        </template>
+                      </n-button>
+                    </div>
+                    <div class="compact-field-content">
+                      {{ selectedLog.upstream_addr }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="compact-field" v-if="selectedLog.user_agent">
                   <div class="compact-field-header">
-                    <span class="compact-field-title">请求路径</span>
+                    <span class="compact-field-title">User Agent</span>
                     <n-button
                       size="tiny"
                       text
-                      @click="copyContent(selectedLog.request_path, '请求路径')"
+                      @click="copyContent(selectedLog.user_agent, 'User Agent')"
                     >
                       <template #icon>
                         <n-icon :component="CopyOutline" />
@@ -718,69 +811,35 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                     </n-button>
                   </div>
                   <div class="compact-field-content">
-                    {{ selectedLog.request_path }}
+                    {{ selectedLog.user_agent }}
                   </div>
                 </div>
 
-                <div class="compact-field-half" v-if="selectedLog.upstream_addr">
+                <div class="compact-field" v-if="selectedLog.request_body">
                   <div class="compact-field-header">
-                    <span class="compact-field-title">上游地址</span>
+                    <span class="compact-field-title">请求内容</span>
                     <n-button
                       size="tiny"
                       text
-                      @click="copyContent(selectedLog.upstream_addr, '上游地址')"
+                      @click="copyContent(formatJsonString(selectedLog.request_body), '请求内容')"
                     >
                       <template #icon>
                         <n-icon :component="CopyOutline" />
                       </template>
                     </n-button>
                   </div>
-                  <div class="compact-field-content">
-                    {{ selectedLog.upstream_addr }}
+                  <div class="compact-field-content compact-field-content-large">
+                    {{ formatJsonString(selectedLog.request_body) }}
                   </div>
                 </div>
               </div>
+            </n-collapse-item>
+          </n-collapse>
+          </div>
 
-              <div class="compact-field" v-if="selectedLog.user_agent">
-                <div class="compact-field-header">
-                  <span class="compact-field-title">User Agent</span>
-                  <n-button
-                    size="tiny"
-                    text
-                    @click="copyContent(selectedLog.user_agent, 'User Agent')"
-                  >
-                    <template #icon>
-                      <n-icon :component="CopyOutline" />
-                    </template>
-                  </n-button>
-                </div>
-                <div class="compact-field-content">
-                  {{ selectedLog.user_agent }}
-                </div>
-              </div>
-
-              <div class="compact-field" v-if="selectedLog.request_body">
-                <div class="compact-field-header">
-                  <span class="compact-field-title">请求内容</span>
-                  <n-button
-                    size="tiny"
-                    text
-                    @click="copyContent(formatJsonString(selectedLog.request_body), '请求内容')"
-                  >
-                    <template #icon>
-                      <n-icon :component="CopyOutline" />
-                    </template>
-                  </n-button>
-                </div>
-                <div class="compact-field-content compact-field-content-large">
-                  {{ formatJsonString(selectedLog.request_body) }}
-                </div>
-              </div>
-            </div>
-          </n-card>
-
-          <!-- 响应信息 -->
-          <n-card
+          <!-- 响应信息区域(可伸缩) -->
+          <div class="modal-response-section">
+            <n-card
             v-if="selectedLog.response_body"
             title="响应信息"
             size="small"
@@ -842,18 +901,40 @@ const selectedCount = computed(() => selectedLogIds.value.length);
               </div>
             </div>
           </n-card>
-        </n-space>
+          </div>
+        </div>
       </div>
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="closeDetailModal">关闭</n-button>
-        </n-space>
-      </template>
     </n-modal>
   </div>
 </template>
 
 <style scoped>
+/* 模态窗口布局优化 */
+.modal-content-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content-flex {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* 头部信息区域 - 固定高度，不伸缩 */
+.modal-header-section {
+  flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+/* 响应信息区域 - 自动占据剩余空间 */
+.modal-response-section {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 确保内容不会超出模态窗口 */
+}
 .log-table-container {
   /* background: white; */
   /* border-radius: 8px; */

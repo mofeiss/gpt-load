@@ -2,7 +2,7 @@
 import type { StreamContent } from "@/types/models";
 import { copy } from "@/utils/clipboard";
 import { CopyOutline } from "@vicons/ionicons5";
-import { NButton, NCard, NGrid, NIcon, useMessage } from "naive-ui";
+import { NButton, NCard, NGrid, NGridItem, NIcon, useMessage } from "naive-ui";
 
 interface Props {
   streamContent: StreamContent | undefined;
@@ -11,6 +11,19 @@ interface Props {
 
 const props = defineProps<Props>();
 const message = useMessage();
+
+// 调试插桩
+console.log("【前端插桩】StreamContentDisplay 接收到的数据:", {
+  streamContent: props.streamContent,
+  rawContent: props.rawContent ? `长度: ${props.rawContent.length}` : "无数据",
+  streamContentExists: !!props.streamContent,
+  streamContentFields: props.streamContent ? {
+    thinking_chain: props.streamContent.thinking_chain?.length || 0,
+    text_messages: props.streamContent.text_messages?.length || 0,
+    tool_calls: props.streamContent.tool_calls?.length || 0,
+    raw_content: props.streamContent.raw_content?.length || 0
+  } : null
+});
 
 // 复制功能
 const copyContent = async (content: string, type: string) => {
@@ -43,10 +56,17 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
 </script>
 
 <template>
+  <!-- 调试信息 -->
+  <!-- <div style="background: #f0f0f0; padding: 8px; margin-bottom: 8px; font-size: 12px;">
+    【模板调试】streamContent存在: {{ !!props.streamContent }}, rawContent存在: {{ !!props.rawContent }},
+    条件判断结果: {{ !!(props.streamContent || props.rawContent) }}
+  </div> -->
+
   <div v-if="props.streamContent || props.rawContent" class="stream-display">
     <n-grid :cols="2" :x-gap="12">
       <!-- 左侧：原文内容 -->
-      <n-card title="原文内容" size="small" class="raw-content-card">
+      <n-grid-item>
+        <n-card title="原文内容" size="small" class="raw-content-card">
         <template #header-extra>
           <n-button size="tiny" text @click="copyContent(props.rawContent, '原文内容')">
             <template #icon>
@@ -54,13 +74,15 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
             </template>
           </n-button>
         </template>
-        <div class="content-display raw-content">
-          {{ props.rawContent }}
-        </div>
-      </n-card>
+          <div class="content-display raw-content">
+            {{ props.rawContent }}
+          </div>
+        </n-card>
+      </n-grid-item>
 
       <!-- 右侧：解析后内容 -->
-      <n-card title="解析后内容" size="small" class="parsed-content-card">
+      <n-grid-item>
+        <n-card title="解析后内容" size="small" class="parsed-content-card">
         <template #header-extra>
           <n-button
             v-if="props.streamContent"
@@ -73,13 +95,14 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
             </template>
           </n-button>
         </template>
-        <div class="content-display parsed-content">
-          <div v-if="props.streamContent">
-            {{ formatStreamContentAsMarkdown(props.streamContent) }}
+          <div class="content-display parsed-content">
+            <div v-if="props.streamContent">
+              {{ formatStreamContentAsMarkdown(props.streamContent) }}
+            </div>
+            <div v-else class="no-parsed-content">暂无解析内容</div>
           </div>
-          <div v-else class="no-parsed-content">暂无解析内容</div>
-        </div>
-      </n-card>
+        </n-card>
+      </n-grid-item>
     </n-grid>
   </div>
 </template>
@@ -87,16 +110,20 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
 <style scoped>
 .stream-display {
   width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .raw-content-card,
 .parsed-content-card {
-  height: 400px;
+  flex-shrink: 0;
 }
 
 .content-display {
-  height: 320px;
+  flex-grow: 1;
   overflow-y: auto;
+  min-height: 200px; /* 最小高度保证可用性 */
   font-family: "Courier New", Consolas, monospace;
   font-size: 12px;
   line-height: 1.4;
