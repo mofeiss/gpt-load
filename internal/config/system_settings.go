@@ -398,6 +398,11 @@ func (sm *SystemSettingsManager) DisplaySystemConfig(settings types.SystemSettin
 	logrus.Infof("    App URL: %s", settings.AppUrl)
 	logrus.Infof("    Request Log Retention: %d days", settings.RequestLogRetentionDays)
 	logrus.Infof("    Request Log Write Interval: %d minutes", settings.RequestLogWriteIntervalMinutes)
+	logrus.Infof("    Request Body Logging: %t", settings.EnableRequestBodyLogging)
+	logrus.Infof("    Response Body Logging: %t", settings.EnableResponseBodyLogging)
+	if settings.EnableResponseBodyLogging {
+		logrus.Infof("    Max Response Body Log Size: %d bytes (%.1fMB)", settings.MaxResponseBodyLogSize, float64(settings.MaxResponseBodyLogSize)/1048576)
+	}
 
 	logrus.Info("  --- Request Behavior ---")
 	logrus.Infof("    Request Timeout: %d seconds", settings.RequestTimeout)

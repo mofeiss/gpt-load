@@ -734,6 +734,34 @@ const selectedCount = computed(() => selectedLogIds.value.length);
             </div>
           </n-card>
 
+          <!-- 响应信息 -->
+          <n-card
+            v-if="selectedLog.response_body"
+            title="响应信息"
+            size="small"
+            :header-style="{ padding: '8px 12px', fontSize: '13px' }"
+          >
+            <div class="compact-fields">
+              <div class="compact-field">
+                <div class="compact-field-header">
+                  <span class="compact-field-title">响应内容</span>
+                  <n-button
+                    size="tiny"
+                    text
+                    @click="copyContent(formatJsonString(selectedLog.response_body), '响应内容')"
+                  >
+                    <template #icon>
+                      <n-icon :component="CopyOutline" />
+                    </template>
+                  </n-button>
+                </div>
+                <div class="compact-field-content">
+                  {{ formatJsonString(selectedLog.response_body) }}
+                </div>
+              </div>
+            </div>
+          </n-card>
+
           <!-- 错误信息 -->
           <n-card
             v-if="selectedLog.error_message"
