@@ -76,3 +76,17 @@ func (s *Server) DeleteLogs(c *gin.Context) {
 		"message":       fmt.Sprintf("成功删除 %d 条日志", deletedCount),
 	})
 }
+
+// ClearLogs handles clearing all logs.
+func (s *Server) ClearLogs(c *gin.Context) {
+	deletedCount, err := s.LogService.ClearAllLogs()
+	if err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	response.Success(c, gin.H{
+		"deleted_count": deletedCount,
+		"message":       fmt.Sprintf("成功清空 %d 条日志", deletedCount),
+	})
+}

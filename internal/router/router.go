@@ -149,6 +149,7 @@ func registerProtectedAPIRoutes(api *gin.RouterGroup, serverHandler *handler.Ser
 		logs.GET("", serverHandler.GetLogs)
 		logs.GET("/export", serverHandler.ExportLogs)
 		logs.POST("/delete", serverHandler.DeleteLogs)
+		logs.POST("/clear", serverHandler.ClearLogs)
 	}
 
 	// 设置

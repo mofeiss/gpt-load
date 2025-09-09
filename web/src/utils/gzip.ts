@@ -1,4 +1,4 @@
-import { inflate } from 'pako';
+import { inflate } from "pako";
 
 /**
  * 尝试解压 gzip 压缩的字符串
@@ -6,14 +6,16 @@ import { inflate } from 'pako';
  * @returns 解压后的字符串，如果解压失败则返回原始字符串
  */
 export function tryGzipDecode(str: string): string {
-  if (!str || str.trim() === '') {
+  if (!str || str.trim() === "") {
     return str;
   }
 
   // 1. 首先检查是否看起来像 JSON，如果是则直接返回（未压缩）
   const trimmed = str.trim();
-  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
-      (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
     return str;
   }
 
@@ -37,9 +39,9 @@ export function tryGzipDecode(str: string): string {
     }
 
     // 尝试 gzip 解压
-    const decompressed = inflate(bytes, { to: 'string' });
+    const decompressed = inflate(bytes, { to: "string" });
     return decompressed;
-  } catch (error) {
+  } catch (_error) {
     // 3. 如果 base64 + gzip 方式失败，尝试直接解压（二进制数据）
     try {
       const bytes = new Uint8Array(str.length);
@@ -49,13 +51,13 @@ export function tryGzipDecode(str: string): string {
 
       // 检查 gzip 头部标识
       if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-        const decompressed = inflate(bytes, { to: 'string' });
+        const decompressed = inflate(bytes, { to: "string" });
         return decompressed;
       }
-    } catch (innerError) {
+    } catch (_innerError) {
       // 忽略内部错误，返回原始字符串
     }
-    
+
     // 如果所有解压尝试都失败，返回原始字符串
     return str;
   }
@@ -73,14 +75,16 @@ export function isLikelyGzipData(str: string): boolean {
 
   // 检查是否是明显的 JSON
   const trimmed = str.trim();
-  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || 
-      (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
     return false;
   }
 
   // 检查是否包含大量非打印字符或 base64 模式
   const nonPrintableChars = str.match(/[^\x20-\x7E]/g);
-  const isBase64Like = /^[A-Za-z0-9+/]+=*$/.test(str.replace(/\s/g, ''));
-  
+  const isBase64Like = /^[A-Za-z0-9+/]+=*$/.test(str.replace(/\s/g, ""));
+
   return (nonPrintableChars && nonPrintableChars.length > str.length * 0.3) || isBase64Like;
 }

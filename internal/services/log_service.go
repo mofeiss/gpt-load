@@ -145,3 +145,13 @@ func (s *LogService) DeleteLogsByIds(logIds []string) (int64, error) {
 
 	return result.RowsAffected, nil
 }
+
+// ClearAllLogs clears all logs from the database.
+func (s *LogService) ClearAllLogs() (int64, error) {
+	result := s.DB.Where("1 = 1").Delete(&models.RequestLog{})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
+}

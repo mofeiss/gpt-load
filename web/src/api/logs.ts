@@ -49,4 +49,9 @@ export const logApi = {
   deleteLogs: async (logIds: string[]): Promise<ApiResponse<void>> => {
     return http.post("/logs/delete", { log_ids: logIds });
   },
+
+  // 清空日志
+  clearLogs: async (): Promise<ApiResponse<void>> => {
+    return http.post("/logs/clear");
+  },
 };

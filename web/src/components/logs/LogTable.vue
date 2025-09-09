@@ -13,6 +13,7 @@ import {
   Search,
   TrashOutline,
   RefreshOutline,
+  AlertCircleOutline,
 } from "@vicons/ionicons5";
 import {
   NButton,
@@ -44,7 +45,7 @@ interface LogRow extends RequestLog {
 const loading = ref(false);
 const logs = ref<LogRow[]>([]);
 const currentPage = ref(1);
-const pageSize = ref(15);
+const pageSize = ref(100);
 const total = ref(0);
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
 
@@ -157,14 +158,14 @@ const formatJsonString = (jsonStr: string, tryDecompress = true) => {
   if (!jsonStr) {
     return "";
   }
-  
+
   let processedStr = jsonStr;
-  
+
   // 如果启用解压且看起来像 gzip 数据，则尝试解压
   if (tryDecompress && isLikelyGzipData(jsonStr)) {
     processedStr = tryGzipDecode(jsonStr);
   }
-  
+
   try {
     return JSON.stringify(JSON.parse(processedStr), null, 2);
   } catch {
@@ -354,6 +355,22 @@ const deleteLogs = async () => {
   }
 };
 
+const clearLogs = async () => {
+  try {
+    const res = await logApi.clearLogs();
+    if (res.code === 0) {
+      message.success("成功清空所有日志");
+      selectedLogIds.value = [];
+      selectAll.value = false;
+      loadLogs();
+    } else {
+      message.error(res.message || "清空日志失败");
+    }
+  } catch (_error) {
+    message.error("清空日志请求失败");
+  }
+};
+
 // 自动刷新控制函数
 const toggleAutoRefresh = (checked: boolean) => {
   autoRefresh.value = checked;
@@ -506,6 +523,17 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                     </n-button>
                   </template>
                   确定要删除选中的 {{ selectedCount }} 条日志吗？此操作不可撤销。
+                </n-popconfirm>
+                <n-popconfirm @positive-click="clearLogs">
+                  <template #trigger>
+                    <n-button size="small" type="warning">
+                      <template #icon>
+                        <n-icon :component="AlertCircleOutline" />
+                      </template>
+                      清空所有日志
+                    </n-button>
+                  </template>
+                  确定要清空所有日志吗？此操作不可撤销，请谨慎操作。
                 </n-popconfirm>
                 <div class="auto-refresh-control">
                   <n-checkbox v-model:checked="autoRefresh" @update:checked="toggleAutoRefresh">
@@ -764,7 +792,9 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                   <n-button
                     size="tiny"
                     text
-                    @click="copyContent(formatJsonString(selectedLog.response_body, true), '响应内容')"
+                    @click="
+                      copyContent(formatJsonString(selectedLog.response_body, true), '响应内容')
+                    "
                   >
                     <template #icon>
                       <n-icon :component="CopyOutline" />

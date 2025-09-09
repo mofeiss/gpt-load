@@ -52,14 +52,16 @@ function initForm() {
 
 // 过滤掉不需要在前端显示的设置项
 function getFilteredCategories() {
-  const hiddenKeys = ['enable_request_body_logging', 'enable_response_body_logging'];
-  
-  return settingList.value.map(category => {
-    return {
-      ...category,
-      settings: category.settings?.filter(setting => !hiddenKeys.includes(setting.key)) || []
-    };
-  }).filter(category => category.settings.length > 0); // 过滤掉空分类
+  const hiddenKeys = ["enable_request_body_logging", "enable_response_body_logging"];
+
+  return settingList.value
+    .map(category => {
+      return {
+        ...category,
+        settings: category.settings?.filter(setting => !hiddenKeys.includes(setting.key)) || [],
+      };
+    })
+    .filter(category => category.settings.length > 0); // 过滤掉空分类
 }
 
 async function handleSubmit() {
