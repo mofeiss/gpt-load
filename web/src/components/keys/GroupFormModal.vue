@@ -311,13 +311,13 @@ function loadGroupData() {
       value,
     };
   });
-  
+
   // 检查是否有分组级别的黑名单阈值配置
   let blacklistThreshold = null;
-  if (props.group.config && 'blacklist_threshold' in props.group.config) {
+  if (props.group.config && "blacklist_threshold" in props.group.config) {
     blacklistThreshold = props.group.config.blacklist_threshold as number;
   }
-  
+
   Object.assign(formData, {
     name: props.group.name || "",
     display_name: props.group.display_name || "",
@@ -372,13 +372,13 @@ function removeUpstream(index: number) {
 async function fetchGroupConfigOptions() {
   const options = await keysApi.getGroupConfigOptions();
   configOptions.value = options || [];
-  
+
   // 获取全局黑名单阈值默认值
-  const blacklistOption = options.find(opt => opt.key === 'blacklist_threshold');
-  if (blacklistOption && typeof blacklistOption.default_value === 'number') {
+  const blacklistOption = options.find(opt => opt.key === "blacklist_threshold");
+  if (blacklistOption && typeof blacklistOption.default_value === "number") {
     globalBlacklistThreshold.value = blacklistOption.default_value;
   }
-  
+
   configOptionsFetched.value = true;
 }
 

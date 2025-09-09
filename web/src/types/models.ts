@@ -15,7 +15,7 @@ export interface APIKey {
   key_value: string;
   status: KeyStatus;
   is_disabled: boolean; // 手动停用标志
-  remarks: string;      // 备注信息
+  remarks: string; // 备注信息
   request_count: number;
   failure_count: number;
   last_used_at?: string;

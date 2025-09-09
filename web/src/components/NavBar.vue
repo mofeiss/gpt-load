@@ -26,11 +26,20 @@ const menuOptions = computed<MenuOption[]>(() => {
 const route = useRoute();
 const activeMenu = computed(() => route.name);
 
-watch(activeMenu, () => {
-  if (props.mode === "vertical") {
-    emit("close");
-  }
-});
+watch(
+  activeMenu,
+  newMenu => {
+    if (props.mode === "vertical") {
+      emit("close");
+    }
+
+    // 保存当前视图到 localStorage
+    if (newMenu && typeof newMenu === "string") {
+      localStorage.setItem("lastActiveView", newMenu);
+    }
+  },
+  { immediate: true }
+);
 
 function renderMenuItem(key: string, label: string, icon: string): MenuOption {
   return {

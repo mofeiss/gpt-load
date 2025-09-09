@@ -444,7 +444,7 @@ function resetPage() {
           {{ group.description }}
         </div>
       </div>
-      
+
       <n-divider style="margin: 12px 0" v-if="group?.description" />
 
       <!-- 详细信息区（可折叠） -->

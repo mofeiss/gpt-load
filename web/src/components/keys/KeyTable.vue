@@ -196,7 +196,7 @@ async function loadKeys() {
       ...item,
       is_visible: false,
       is_editing_remarks: false,
-      temp_remarks: item.remarks || '',
+      temp_remarks: item.remarks || "",
     })) as KeyRow[];
     total.value = result.pagination.total_items;
     totalPages.value = result.pagination.total_pages;
@@ -598,7 +598,11 @@ async function toggleKeyDisableStatus(key: KeyRow) {
       d.loading = true;
 
       try {
-        await keysApi.toggleKeyDisableStatus(props.selectedGroup.id, key.key_value, newDisableStatus);
+        await keysApi.toggleKeyDisableStatus(
+          props.selectedGroup.id,
+          key.key_value,
+          newDisableStatus
+        );
         key.is_disabled = newDisableStatus;
         window.$message.success(`密钥已${action}`);
       } catch (_error) {
@@ -613,7 +617,7 @@ async function toggleKeyDisableStatus(key: KeyRow) {
 // 开始编辑备注
 function startEditingRemarks(key: KeyRow) {
   key.is_editing_remarks = true;
-  key.temp_remarks = key.remarks || '';
+  key.temp_remarks = key.remarks || "";
 }
 
 // 保存备注
@@ -635,7 +639,7 @@ async function saveRemarks(key: KeyRow) {
 // 取消编辑备注
 function cancelEditingRemarks(key: KeyRow) {
   key.is_editing_remarks = false;
-  key.temp_remarks = key.remarks || '';
+  key.temp_remarks = key.remarks || "";
 }
 </script>
 
@@ -696,12 +700,7 @@ function cancelEditingRemarks(key: KeyRow) {
           <n-empty description="没有找到匹配的密钥" />
         </div>
         <div v-else class="keys-grid">
-          <div
-            v-for="key in keys"
-            :key="key.id"
-            class="key-card"
-            :class="getStatusClass(key)"
-          >
+          <div v-for="key in keys" :key="key.id" class="key-card" :class="getStatusClass(key)">
             <!-- 主要信息行：Key + 快速操作 -->
             <div class="key-main">
               <div class="key-section">
@@ -709,7 +708,7 @@ function cancelEditingRemarks(key: KeyRow) {
                   <template #icon>
                     <n-icon :component="AlertCircleOutline" />
                   </template>
-                  {{ key.is_disabled ? '手动停用' : '无效' }}
+                  {{ key.is_disabled ? "手动停用" : "无效" }}
                 </n-tag>
                 <n-tag v-else type="success" :bordered="false" round>
                   <template #icon>
@@ -741,17 +740,17 @@ function cancelEditingRemarks(key: KeyRow) {
             <!-- 备注信息 -->
             <div class="key-remarks">
               <div v-if="!key.is_editing_remarks" class="remarks-display">
-                <span 
-                  v-if="key.remarks" 
-                  class="remarks-text" 
+                <span
+                  v-if="key.remarks"
+                  class="remarks-text"
                   @click="startEditingRemarks(key)"
                   title="点击编辑备注"
                 >
                   {{ key.remarks }}
                 </span>
-                <span 
-                  v-else 
-                  class="remarks-placeholder" 
+                <span
+                  v-else
+                  class="remarks-placeholder"
                   @click="startEditingRemarks(key)"
                   title="点击添加备注"
                 >

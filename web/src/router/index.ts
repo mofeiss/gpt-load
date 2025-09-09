@@ -56,4 +56,14 @@ router.beforeEach((to, _from, next) => {
   next();
 });
 
+// 应用启动时检查 localStorage 中的保存视图并跳转
+const savedView = localStorage.getItem("lastActiveView");
+if (
+  savedView &&
+  savedView !== router.currentRoute.value.name &&
+  router.currentRoute.value.path === "/"
+) {
+  router.push({ name: savedView });
+}
+
 export default router;

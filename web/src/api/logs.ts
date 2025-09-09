@@ -42,4 +42,9 @@ export const logApi = {
     link.click();
     document.body.removeChild(link);
   },
+
+  // 删除日志
+  deleteLogs: async (params: Omit<LogFilter, "page" | "page_size">): Promise<ApiResponse<void>> => {
+    return http.delete("/logs", { data: params });
+  },
 };

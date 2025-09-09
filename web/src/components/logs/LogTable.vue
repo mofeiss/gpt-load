@@ -10,6 +10,8 @@ import {
   EyeOffOutline,
   EyeOutline,
   Search,
+  TrashOutline,
+  RefreshOutline,
 } from "@vicons/ionicons5";
 import {
   NButton,
@@ -24,9 +26,11 @@ import {
   NSpace,
   NSpin,
   NTag,
+  NCheckbox,
+  NPopconfirm,
   useMessage,
 } from "naive-ui";
-import { computed, h, onMounted, reactive, ref, watch } from "vue";
+import { computed, h, onMounted, onUnmounted, reactive, ref, watch } from "vue";
 
 // Message instance
 const message = useMessage();
@@ -42,6 +46,10 @@ const currentPage = ref(1);
 const pageSize = ref(15);
 const total = ref(0);
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
+
+// 自动刷新相关
+const autoRefresh = ref(false);
+const refreshInterval = ref<number | null>(null);
 
 // Modal for viewing request/response details
 const showDetailModal = ref(false);
@@ -250,6 +258,11 @@ const columns = createColumns();
 
 // Lifecycle and Watchers
 onMounted(loadLogs);
+onUnmounted(() => {
+  if (refreshInterval.value) {
+    clearInterval(refreshInterval.value);
+  }
+});
 watch([currentPage, pageSize], loadLogs);
 
 const handleSearch = () => {
@@ -285,6 +298,48 @@ const exportLogs = () => {
     request_type: filters.request_type || undefined,
   };
   logApi.exportLogs(params);
+};
+
+const deleteLogs = async () => {
+  const params: Omit<LogFilter, "page" | "page_size"> = {
+    group_name: filters.group_name || undefined,
+    key_value: filters.key_value || undefined,
+    model: filters.model || undefined,
+    is_success: filters.is_success === "" ? undefined : filters.is_success === "true",
+    status_code: filters.status_code ? parseInt(filters.status_code, 10) : undefined,
+    source_ip: filters.source_ip || undefined,
+    error_contains: filters.error_contains || undefined,
+    start_time: filters.start_time ? new Date(filters.start_time).toISOString() : undefined,
+    end_time: filters.end_time ? new Date(filters.end_time).toISOString() : undefined,
+    request_type: filters.request_type || undefined,
+  };
+
+  try {
+    const res = await logApi.deleteLogs(params);
+    if (res.code === 0) {
+      message.success("日志删除成功");
+      loadLogs();
+    } else {
+      message.error(res.message || "删除日志失败");
+    }
+  } catch (_error) {
+    message.error("删除日志请求失败");
+  }
+};
+
+// 自动刷新控制函数
+const toggleAutoRefresh = (checked: boolean) => {
+  autoRefresh.value = checked;
+  if (checked) {
+    refreshInterval.value = window.setInterval(() => {
+      loadLogs();
+    }, 1000);
+  } else {
+    if (refreshInterval.value) {
+      clearInterval(refreshInterval.value);
+      refreshInterval.value = null;
+    }
+  }
 };
 
 function changePage(page: number) {
@@ -396,12 +451,33 @@ function changePageSize(size: number) {
                   搜索
                 </n-button>
                 <n-button size="small" @click="resetFilters">重置</n-button>
-                <n-button size="small" type="primary" ghost @click="exportLogs">
+                <n-button ghost size="small" @click="exportLogs">
                   <template #icon>
                     <n-icon :component="DownloadOutline" />
                   </template>
                   导出密钥
                 </n-button>
+                <n-popconfirm @positive-click="deleteLogs">
+                  <template #trigger>
+                    <n-button size="small" type="error">
+                      <template #icon>
+                        <n-icon :component="TrashOutline" />
+                      </template>
+                      删除日志
+                    </n-button>
+                  </template>
+                  确定要删除符合条件的日志吗？此操作不可撤销。
+                </n-popconfirm>
+                <div class="auto-refresh-control">
+                  <n-checkbox v-model:checked="autoRefresh" @update:checked="toggleAutoRefresh">
+                    自动刷新
+                  </n-checkbox>
+                  <n-button v-if="autoRefresh" size="tiny" type="info" ghost @click="loadLogs">
+                    <template #icon>
+                      <n-icon :component="RefreshOutline" />
+                    </template>
+                  </n-button>
+                </div>
               </div>
             </div>
           </div>
@@ -708,6 +784,16 @@ function changePageSize(size: number) {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.auto-refresh-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 16px;
+  border-left: 1px solid #e5e7eb;
 }
 
 @media (max-width: 768px) {
@@ -725,6 +811,15 @@ function changePageSize(size: number) {
   }
   .filter-actions .n-button {
     width: 100%;
+  }
+  .auto-refresh-control {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 8px;
+    margin-top: 8px;
+    justify-content: center;
   }
 }
 

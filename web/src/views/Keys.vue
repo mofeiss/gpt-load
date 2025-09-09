@@ -15,20 +15,18 @@ const route = useRoute();
 
 onMounted(async () => {
   await loadGroups();
+  restoreSelectedGroup();
 });
 
 async function loadGroups() {
   try {
     loading.value = true;
     groups.value = await keysApi.getGroups();
-    // 选择默认分组
-    if (groups.value.length > 0 && !selectedGroup.value) {
-      const groupId = route.query.groupId;
-      const found = groups.value.find(g => String(g.id) === String(groupId));
+    // 只处理 URL 参数中的分组 ID，不自动选择第一个分组
+    if (groups.value.length > 0 && !selectedGroup.value && route.query.groupId) {
+      const found = groups.value.find(g => String(g.id) === String(route.query.groupId));
       if (found) {
         selectedGroup.value = found;
-      } else {
-        handleGroupSelect(groups.value[0]);
       }
     }
   } finally {
@@ -36,8 +34,33 @@ async function loadGroups() {
   }
 }
 
+function restoreSelectedGroup() {
+  // 从 localStorage 读取保存的分组 ID 并自动切换
+  const savedGroupId = localStorage.getItem("lastSelectedGroupId");
+  if (savedGroupId && groups.value.length > 0) {
+    const savedGroup = groups.value.find(g => String(g.id) === savedGroupId);
+    if (savedGroup && savedGroup.id !== selectedGroup.value?.id) {
+      handleGroupSelect(savedGroup);
+      return;
+    }
+  }
+
+  // 如果没有保存的分组，或者保存的分组不存在，则选择第一个分组
+  if (groups.value.length > 0 && !selectedGroup.value) {
+    handleGroupSelect(groups.value[0]);
+  }
+}
+
 function handleGroupSelect(group: Group | null) {
   selectedGroup.value = group || null;
+
+  // 保存选中的分组到 localStorage
+  if (group?.id) {
+    localStorage.setItem("lastSelectedGroupId", String(group.id));
+  } else {
+    localStorage.removeItem("lastSelectedGroupId");
+  }
+
   if (String(group?.id) !== String(route.query.groupId)) {
     router.push({ name: "keys", query: { groupId: group?.id || "" } });
   }
@@ -45,28 +68,25 @@ function handleGroupSelect(group: Group | null) {
 
 async function handleGroupRefresh() {
   await loadGroups();
-  if (selectedGroup.value) {
-    // 重新加载当前选中的分组信息
-    handleGroupSelect(groups.value.find(g => g.id === selectedGroup.value?.id) || null);
-  }
+  restoreSelectedGroup();
 }
 
 async function handleGroupRefreshAndSelect(targetGroupId: number) {
   await loadGroups();
-  // 刷新完成后，切换到指定的分组
-  const targetGroup = groups.value.find(g => g.id === targetGroupId);
-  if (targetGroup) {
-    handleGroupSelect(targetGroup);
-  }
+  // 临时设置选中的分组 ID 到 localStorage，确保 restoreSelectedGroup 能正确处理
+  localStorage.setItem("lastSelectedGroupId", String(targetGroupId));
+  restoreSelectedGroup();
 }
 
 function handleGroupDelete(deletedGroup: Group) {
   // 从分组列表中移除已删除的分组
   groups.value = groups.value.filter(g => g.id !== deletedGroup.id);
 
-  // 如果删除的是当前选中的分组，则切换到第一个分组
+  // 如果删除的是当前选中的分组，则移除 localStorage 中的记录并重新选择分组
   if (selectedGroup.value?.id === deletedGroup.id) {
-    handleGroupSelect(groups.value.length > 0 ? groups.value[0] : null);
+    localStorage.removeItem("lastSelectedGroupId");
+    selectedGroup.value = null;
+    restoreSelectedGroup();
   }
 }
 
@@ -74,10 +94,8 @@ async function handleGroupCopySuccess(newGroup: Group) {
   // 重新加载分组列表以包含新创建的分组
   await loadGroups();
   // 自动切换到新创建的分组
-  const createdGroup = groups.value.find(g => g.id === newGroup.id);
-  if (createdGroup) {
-    handleGroupSelect(createdGroup);
-  }
+  localStorage.setItem("lastSelectedGroupId", String(newGroup.id));
+  restoreSelectedGroup();
 }
 </script>
 
