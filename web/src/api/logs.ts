@@ -44,7 +44,7 @@ export const logApi = {
   },
 
   // 删除日志
-  deleteLogs: async (params: Omit<LogFilter, "page" | "page_size">): Promise<ApiResponse<void>> => {
-    return http.delete("/logs", { data: params });
+  deleteLogs: async (logIds: string[]): Promise<ApiResponse<void>> => {
+    return http.post("/logs/delete", { log_ids: logIds });
   },
 };

@@ -46,3 +46,33 @@ func (s *Server) ExportLogs(c *gin.Context) {
 		return
 	}
 }
+
+// DeleteLogsRequest defines the request structure for deleting logs by IDs
+type DeleteLogsRequest struct {
+	LogIds []string `json:"log_ids" binding:"required"`
+}
+
+// DeleteLogs handles deleting logs by their IDs.
+func (s *Server) DeleteLogs(c *gin.Context) {
+	var req DeleteLogsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInvalidJSON, err.Error()))
+		return
+	}
+
+	if len(req.LogIds) == 0 {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrValidation, "日志ID列表不能为空"))
+		return
+	}
+
+	deletedCount, err := s.LogService.DeleteLogsByIds(req.LogIds)
+	if err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	response.Success(c, gin.H{
+		"deleted_count": deletedCount,
+		"message":       fmt.Sprintf("成功删除 %d 条日志", deletedCount),
+	})
+}

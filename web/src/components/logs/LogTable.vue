@@ -47,6 +47,10 @@ const pageSize = ref(15);
 const total = ref(0);
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
 
+// 批量选择相关
+const selectedLogIds = ref<string[]>([]);
+const selectAll = ref(false);
+
 // 自动刷新相关
 const autoRefresh = ref(false);
 const refreshInterval = ref<number | null>(null);
@@ -105,6 +109,9 @@ const loadLogs = async () => {
     if (res.code === 0 && res.data) {
       logs.value = res.data.items.map(log => ({ ...log, is_key_visible: false }));
       total.value = res.data.pagination.total_items;
+      // 清空选择状态
+      selectedLogIds.value = [];
+      selectAll.value = false;
     } else {
       logs.value = [];
       total.value = 0;
@@ -166,6 +173,10 @@ const copyContent = async (content: string, type: string) => {
 
 // Columns definition
 const createColumns = () => [
+  {
+    type: "selection" as const,
+    width: 50,
+  },
   {
     title: "时间",
     key: "timestamp",
@@ -312,23 +323,17 @@ const exportLogs = () => {
 };
 
 const deleteLogs = async () => {
-  const params: Omit<LogFilter, "page" | "page_size"> = {
-    group_name: filters.group_name || undefined,
-    key_value: filters.key_value || undefined,
-    model: filters.model || undefined,
-    is_success: filters.is_success === "" ? undefined : filters.is_success === "true",
-    status_code: filters.status_code ? parseInt(filters.status_code, 10) : undefined,
-    source_ip: filters.source_ip || undefined,
-    error_contains: filters.error_contains || undefined,
-    start_time: filters.start_time ? new Date(filters.start_time).toISOString() : undefined,
-    end_time: filters.end_time ? new Date(filters.end_time).toISOString() : undefined,
-    request_type: filters.request_type || undefined,
-  };
+  if (selectedLogIds.value.length === 0) {
+    message.warning("请先选择要删除的日志");
+    return;
+  }
 
   try {
-    const res = await logApi.deleteLogs(params);
+    const res = await logApi.deleteLogs(selectedLogIds.value);
     if (res.code === 0) {
-      message.success("日志删除成功");
+      message.success(`成功删除 ${selectedLogIds.value.length} 条日志`);
+      selectedLogIds.value = [];
+      selectAll.value = false;
       loadLogs();
     } else {
       message.error(res.message || "删除日志失败");
@@ -365,6 +370,14 @@ function changePageSize(size: number) {
   pageSize.value = size;
   currentPage.value = 1;
 }
+
+// 批量选择相关函数
+const handleSelectionChange = (rowKeys: (string | number)[]) => {
+  selectedLogIds.value = rowKeys as string[];
+  selectAll.value = rowKeys.length === logs.value.length && logs.value.length > 0;
+};
+
+const selectedCount = computed(() => selectedLogIds.value.length);
 </script>
 
 <template>
@@ -474,14 +487,14 @@ function changePageSize(size: number) {
                 </n-button>
                 <n-popconfirm @positive-click="deleteLogs">
                   <template #trigger>
-                    <n-button size="small" type="error">
+                    <n-button size="small" type="error" :disabled="selectedCount === 0">
                       <template #icon>
                         <n-icon :component="TrashOutline" />
                       </template>
-                      删除日志
+                      删除选中日志 {{ selectedCount > 0 ? `(${selectedCount})` : "" }}
                     </n-button>
                   </template>
-                  确定要删除符合条件的日志吗？此操作不可撤销。
+                  确定要删除选中的 {{ selectedCount }} 条日志吗？此操作不可撤销。
                 </n-popconfirm>
                 <div class="auto-refresh-control">
                   <n-checkbox v-model:checked="autoRefresh" @update:checked="toggleAutoRefresh">
@@ -508,7 +521,10 @@ function changePageSize(size: number) {
               :bordered="false"
               remote
               size="small"
-              :scroll-x="1180"
+              :scroll-x="1230"
+              :row-key="(row: LogRow) => row.id"
+              :checked-row-keys="selectedLogIds"
+              @update:checked-row-keys="handleSelectionChange"
             />
           </n-spin>
         </div>

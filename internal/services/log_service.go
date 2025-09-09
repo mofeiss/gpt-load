@@ -131,3 +131,17 @@ func (s *LogService) StreamLogKeysToCSV(c *gin.Context, writer io.Writer) error 
 
 	return nil
 }
+
+// DeleteLogsByIds deletes logs by their IDs.
+func (s *LogService) DeleteLogsByIds(logIds []string) (int64, error) {
+	if len(logIds) == 0 {
+		return 0, nil
+	}
+
+	result := s.DB.Where("id IN ?", logIds).Delete(&models.RequestLog{})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
+}
