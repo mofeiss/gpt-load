@@ -67,9 +67,12 @@ func (ps *ProxyServer) handleStreamingResponse(c *gin.Context, resp *http.Respon
 		if responseBuffer.Len() >= maxSize {
 			response += "\n[TRUNCATED: Response exceeded maximum log size]"
 		}
-		// 解压 gzip：对于流式响应多数不会 gzip，但为了统一，尽量尝试按 header 处理
-		// 这里无法逐块解压，流式下如果服务器设置了 gzip，一般客户端会自动处理。
-		// 因为我们直接把上游块原样写给客户端，日志里只保留原文，避免错误解码。
+		// 处理流式响应的gzip压缩问题
+		// 检查响应是否使用了gzip压缩，如果是则解压后记录到日志
+		if resp.Header.Get("Content-Encoding") == "gzip" && len(response) > 0 {
+			decompressedResponse := handleGzipCompression(resp, []byte(response))
+			return string(decompressedResponse)
+		}
 		return response
 	}
 
