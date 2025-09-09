@@ -76,9 +76,13 @@ async function copyProxyKeys() {
   const keysToCopy = props.group.proxy_keys.replace(/,/g, "\n");
   const success = await copy(keysToCopy);
   if (success) {
-    window.$message.success("代理密钥已复制到剪贴板");
+    window.$message.success("代理密钥已复制到剪贴板", {
+      duration: 3000,
+    });
   } else {
-    window.$message.error("复制失败");
+    window.$message.error("复制失败", {
+      duration: 3000,
+    });
   }
 }
 
@@ -226,7 +230,9 @@ async function handleDelete() {
         negativeText: "取消",
         onPositiveClick: async () => {
           if (confirmInput.value !== props.group?.name) {
-            window.$message.error("分组名称输入不正确");
+            window.$message.error("分组名称输入不正确", {
+              duration: 3000,
+            });
             return false; // Prevent dialog from closing
           }
 
@@ -235,11 +241,15 @@ async function handleDelete() {
             if (props.group?.id) {
               await keysApi.deleteGroup(props.group.id);
               emit("delete", props.group);
-              window.$message.success("分组已成功删除");
+              window.$message.success("分组已成功删除", {
+                duration: 3000,
+              });
             }
           } catch (error) {
             console.error("删除分组失败:", error);
-            window.$message.error("删除分组失败，请稍后重试");
+            window.$message.error("删除分组失败，请稍后重试", {
+              duration: 3000,
+            });
           } finally {
             delLoading.value = false;
           }
@@ -272,9 +282,13 @@ async function copyUrl(url: string) {
   }
   const success = await copy(url);
   if (success) {
-    window.$message.success("地址已复制到剪贴板");
+    window.$message.success("地址已复制到剪贴板", {
+      duration: 3000,
+    });
   } else {
-    window.$message.error("复制失败");
+    window.$message.error("复制失败", {
+      duration: 3000,
+    });
   }
 }
 

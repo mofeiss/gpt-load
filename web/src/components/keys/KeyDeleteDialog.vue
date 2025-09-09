@@ -56,7 +56,9 @@ async function handleSubmit() {
     resetForm();
 
     handleClose();
-    window.$message.success("密钥删除任务已开始，请稍后在下方查看进度。");
+    window.$message.success("密钥删除任务已开始，请稍后在下方查看进度。", {
+      duration: 3000,
+    });
     appState.taskPollingTrigger++;
   } finally {
     loading.value = false;

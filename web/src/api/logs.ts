@@ -16,7 +16,9 @@ export const logApi = {
   exportLogs: (params: Omit<LogFilter, "page" | "page_size">) => {
     const authKey = localStorage.getItem("authKey");
     if (!authKey) {
-      window.$message.error("未找到认证信息，无法导出");
+      window.$message.error("未找到认证信息，无法导出", {
+        duration: 3000,
+      });
       return;
     }
 

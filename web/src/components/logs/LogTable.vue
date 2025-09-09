@@ -117,12 +117,14 @@ const loadLogs = async () => {
       total.value = 0;
       window.$message.error(res.message || "加载日志失败", {
         keepAliveOnHover: true,
-        duration: 5000,
+        duration: 3000,
         closable: true,
       });
     }
   } catch (_error) {
-    window.$message.error("加载日志请求失败");
+    window.$message.error("加载日志请求失败", {
+      duration: 3000,
+    });
   } finally {
     loading.value = false;
   }
@@ -660,7 +662,10 @@ const selectedCount = computed(() => selectedLogIds.value.length);
             :header-style="{ padding: '8px 12px', fontSize: '13px' }"
           >
             <div class="compact-fields">
-              <div class="compact-field-row" v-if="selectedLog.request_path || selectedLog.upstream_addr">
+              <div
+                class="compact-field-row"
+                v-if="selectedLog.request_path || selectedLog.upstream_addr"
+              >
                 <div class="compact-field-half" v-if="selectedLog.request_path">
                   <div class="compact-field-header">
                     <span class="compact-field-title">请求路径</span>

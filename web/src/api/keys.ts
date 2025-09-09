@@ -191,7 +191,9 @@ export const keysApi = {
   exportKeys(groupId: number, status: "all" | "active" | "invalid" = "all") {
     const authKey = localStorage.getItem("authKey");
     if (!authKey) {
-      window.$message.error("未找到认证信息，无法导出");
+      window.$message.error("未找到认证信息，无法导出", {
+        duration: 3000,
+      });
       return;
     }
 

@@ -201,7 +201,9 @@ async function loadKeys() {
     total.value = result.pagination.total_items;
     totalPages.value = result.pagination.total_pages;
   } catch (_error) {
-    window.$message.error("加载密钥失败");
+    window.$message.error("加载密钥失败", {
+      duration: 3000,
+    });
   } finally {
     loading.value = false;
   }
@@ -219,9 +221,13 @@ async function handleBatchDeleteSuccess() {
 async function copyKey(key: KeyRow) {
   const success = await copy(key.key_value);
   if (success) {
-    window.$message.success("密钥已复制到剪贴板");
+    window.$message.success("密钥已复制到剪贴板", {
+      duration: 3000,
+    });
   } else {
-    window.$message.error("复制失败");
+    window.$message.error("复制失败", {
+      duration: 3000,
+    });
   }
 }
 
@@ -238,11 +244,13 @@ async function testKey(_key: KeyRow) {
     const response = await keysApi.testKeys(props.selectedGroup.id, _key.key_value);
     const curValid = response.results?.[0] || {};
     if (curValid.is_valid) {
-      window.$message.success(`密钥测试成功 (耗时: ${formatDuration(response.total_duration)})`);
+      window.$message.success(`密钥测试成功 (耗时: ${formatDuration(response.total_duration)})`, {
+        duration: 3000,
+      });
     } else {
       window.$message.error(curValid.error || "密钥测试失败: 无效的API密钥", {
         keepAliveOnHover: true,
-        duration: 5000,
+        duration: 3000,
         closable: true,
       });
     }
@@ -486,7 +494,9 @@ async function clearAllInvalid() {
       d.loading = true;
       try {
         const { data } = await keysApi.clearAllInvalidKeys(props.selectedGroup.id);
-        window.$message.success(data?.message || "清除成功");
+        window.$message.success(data?.message || "清除成功", {
+          duration: 3000,
+        });
         await loadKeys();
         // 触发同步操作刷新
         triggerSyncOperationRefresh(props.selectedGroup.name, "CLEAR_ALL_INVALID");
@@ -535,7 +545,9 @@ async function clearAll() {
         negativeText: "取消",
         onPositiveClick: async () => {
           if (confirmInput.value !== props.selectedGroup?.name) {
-            window.$message.error("分组名称输入不正确");
+            window.$message.error("分组名称输入不正确", {
+              duration: 3000,
+            });
             return false; // Prevent dialog from closing
           }
 
@@ -546,7 +558,9 @@ async function clearAll() {
           isDeling.value = true;
           try {
             await keysApi.clearAllKeys(props.selectedGroup.id);
-            window.$message.success("已成功清空所有密钥");
+            window.$message.success("已成功清空所有密钥", {
+              duration: 3000,
+            });
             await loadKeys();
             // Trigger sync operation refresh
             triggerSyncOperationRefresh(props.selectedGroup.name, "CLEAR_ALL");
@@ -604,7 +618,9 @@ async function toggleKeyDisableStatus(key: KeyRow) {
           newDisableStatus
         );
         key.is_disabled = newDisableStatus;
-        window.$message.success(`密钥已${action}`);
+        window.$message.success(`密钥已${action}`, {
+          duration: 3000,
+        });
       } catch (_error) {
         console.error(`${action}失败`);
       } finally {
@@ -630,7 +646,9 @@ async function saveRemarks(key: KeyRow) {
     await keysApi.updateKeyRemarks(props.selectedGroup.id, key.key_value, key.temp_remarks);
     key.remarks = key.temp_remarks;
     key.is_editing_remarks = false;
-    window.$message.success("备注更新成功");
+    window.$message.success("备注更新成功", {
+      duration: 3000,
+    });
   } catch (_error) {
     console.error("备注更新失败");
   }
