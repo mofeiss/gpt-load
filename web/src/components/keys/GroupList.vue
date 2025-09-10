@@ -3,10 +3,15 @@ import type { Group } from "@/types/models";
 import { getGroupDisplayName } from "@/utils/display";
 import { Add, Search } from "@vicons/ionicons5";
 import { NButton, NCard, NEmpty, NInput, NSpin, NTag, NCollapse, NCollapseItem } from "naive-ui";
-import { computed, ref, watch } from "vue";
+import { ref, watch, onMounted } from "vue";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupContextMenu from "./GroupContextMenu.vue";
 import { VueDraggableNext } from "vue-draggable-next";
+import { log, setupGlobalLogExporter } from "@/utils/debug-logger";
+
+// --- START: Persistence Logic ---
+const ARCHIVED_EXPANDED_STORAGE_KEY = 'gpt-load-archived-expanded';
+// --- END: Persistence Logic ---
 
 interface Props {
   groups: Group[];
@@ -33,6 +38,87 @@ const emit = defineEmits<Emits>();
 const searchText = ref("");
 const showGroupModal = ref(false);
 
+// --- NEW DRAGGABLE STATE MANAGEMENT ---
+const localActiveGroups = ref<Group[]>([]);
+const localArchivedGroups = ref<Group[]>([]);
+
+// Watch for prop changes to update local state
+watch(
+  () => props.groups,
+  newGroups => {
+    log(
+      "Props changed, updating local draggable lists",
+      newGroups.map(g => ({ id: g.id, name: g.name, archived: g.archived }))
+    );
+    const filtered = newGroups.filter(group => {
+      if (!searchText.value) return true;
+      const search = searchText.value.toLowerCase();
+      return (
+        group.name.toLowerCase().includes(search) ||
+        (group.display_name && group.display_name.toLowerCase().includes(search))
+      );
+    });
+    localActiveGroups.value = filtered.filter(g => !g.archived);
+    localArchivedGroups.value = filtered.filter(g => g.archived);
+  },
+  { immediate: true, deep: true }
+);
+
+// Watch for search text changes to update local state
+watch(searchText, () => {
+  const filtered = props.groups.filter(group => {
+    if (!searchText.value) return true;
+    const search = searchText.value.toLowerCase();
+    return (
+      group.name.toLowerCase().includes(search) ||
+      (group.display_name && group.display_name.toLowerCase().includes(search))
+    );
+  });
+  localActiveGroups.value = filtered.filter(g => !g.archived);
+  localArchivedGroups.value = filtered.filter(g => g.archived);
+});
+
+// This function is now only called ONCE at the end of the drag
+function handleDragEnd() {
+  log("handleDragEnd triggered. Processing final state.");
+
+  const active = localActiveGroups.value;
+  const archived = localArchivedGroups.value;
+
+  log("Final list state", {
+    active: active.map(g => ({ id: g.id, name: g.name })),
+    archived: archived.map(g => ({ id: g.id, name: g.name })),
+  });
+
+  const activeWithState = active.map((group, index) => ({
+    ...group,
+    archived: false,
+    sort: index,
+  }));
+  log(
+    "Calculated final active groups with new state",
+    activeWithState.map(g => ({ id: g.id, name: g.name, archived: g.archived, sort: g.sort }))
+  );
+
+  const archivedWithState = archived.map((group, index) => ({
+    ...group,
+    archived: true,
+    sort: active.length + index,
+  }));
+  log(
+    "Calculated final archived groups with new state",
+    archivedWithState.map(g => ({ id: g.id, name: g.name, archived: g.archived, sort: g.sort }))
+  );
+
+  const finalPayload = [...activeWithState, ...archivedWithState];
+  log(
+    "Emitting SINGLE 'groups-order-updated' with final payload",
+    finalPayload.map(g => ({ id: g.id, name: g.name, archived: g.archived, sort: g.sort }))
+  );
+  emit("groups-order-updated", finalPayload);
+}
+// --- END OF NEW DRAGGABLE STATE MANAGEMENT ---
+
 // 右键菜单相关状态
 const contextMenuData = ref<{
   show: boolean;
@@ -50,61 +136,29 @@ const contextMenuData = ref<{
 const archivedExpanded = ref(false);
 const archivedExpandedArray = ref<string[]>([]);
 
-// 同步展开状态
+// 初始化
+onMounted(() => {
+  setupGlobalLogExporter();
+  // --- START: Persistence Logic ---
+  const savedState = localStorage.getItem(ARCHIVED_EXPANDED_STORAGE_KEY);
+  if (savedState !== null) {
+    archivedExpanded.value = JSON.parse(savedState);
+  }
+  // --- END: Persistence Logic ---
+});
+
+// 同步展开状态并持久化
 watch(archivedExpanded, newValue => {
   archivedExpandedArray.value = newValue ? ["archived"] : [];
+  // --- START: Persistence Logic ---
+  localStorage.setItem(ARCHIVED_EXPANDED_STORAGE_KEY, JSON.stringify(newValue));
+  // --- END: Persistence Logic ---
 });
 
 // 监听数组变化来更新展开状态
 watch(archivedExpandedArray, newValue => {
   archivedExpanded.value = newValue.includes("archived");
 });
-
-// 过滤后的分组列表
-const filteredGroups = computed(() => {
-  if (!searchText.value) {
-    return props.groups;
-  }
-  const search = searchText.value.toLowerCase();
-  return props.groups.filter(
-    group =>
-      group.name.toLowerCase().includes(search) ||
-      (group.display_name && group.display_name.toLowerCase().includes(search))
-  );
-});
-
-const localActiveGroups = computed({
-  get: () => filteredGroups.value.filter(group => !group.archived),
-  set: (newActiveGroups) => {
-    const newArchivedGroups = localArchivedGroups.value;
-    updateGroups(newActiveGroups, newArchivedGroups);
-  }
-});
-
-const localArchivedGroups = computed({
-  get: () => filteredGroups.value.filter(group => group.archived),
-  set: (newArchivedGroups) => {
-    const newActiveGroups = localActiveGroups.value;
-    updateGroups(newActiveGroups, newArchivedGroups);
-  }
-});
-
-function updateGroups(active: Group[], archived: Group[]) {
-  const activeWithState = active.map((group, index) => ({
-    ...group,
-    archived: false,
-    sort: index,
-  }));
-
-  const archivedWithState = archived.map((group, index) => ({
-    ...group,
-    archived: true,
-    sort: active.length + index,
-  }));
-
-  emit("groups-order-updated", [...activeWithState, ...archivedWithState]);
-}
-
 
 function handleGroupClick(group: Group) {
   emit("group-select", group);
@@ -175,15 +229,14 @@ function handleGroupCreated(group: Group) {
         <n-spin :show="loading" size="small">
           <!-- 常驻分组容器 -->
           <div class="active-groups-container">
-            <n-empty v-if="localActiveGroups.length === 0 && !loading" size="small" :description="searchText ? '未找到匹配的分组' : '暂无分组'" class="empty-container"/>
             <VueDraggableNext
-                v-else
-                v-model="localActiveGroups"
-                class="groups-list"
-                group="groups"
-                :animation="150"
-                ghost-class="sortable-ghost"
-                handle=".group-item"
+              v-model="localActiveGroups"
+              class="groups-list"
+              group="groups"
+              :animation="150"
+              ghost-class="sortable-ghost"
+              handle=".group-item"
+              @end="handleDragEnd"
             >
               <div
                 v-for="group in localActiveGroups"
@@ -210,10 +263,19 @@ function handleGroupCreated(group: Group) {
                 </div>
               </div>
             </VueDraggableNext>
+            <n-empty
+              v-if="localActiveGroups.length === 0 && !loading"
+              size="small"
+              :description="searchText ? '未找到匹配的分组' : '暂无分组'"
+              class="empty-container"
+            />
           </div>
 
           <!-- 归档分组容器 -->
-          <div v-if="localArchivedGroups.length > 0 || searchText" class="archived-groups-container">
+          <div
+            v-if="localArchivedGroups.length > 0 || searchText"
+            class="archived-groups-container"
+          >
             <n-collapse v-model:expanded-names="archivedExpandedArray">
               <n-collapse-item name="archived" class="archived-collapse">
                 <template #header>
@@ -222,12 +284,13 @@ function handleGroupCreated(group: Group) {
                   </div>
                 </template>
                 <VueDraggableNext
-                    v-model="localArchivedGroups"
-                    class="archived-list"
-                    group="groups"
-                    :animation="150"
-                    ghost-class="sortable-ghost"
-                    handle=".group-item"
+                  v-model="localArchivedGroups"
+                  class="archived-list"
+                  group="groups"
+                  :animation="150"
+                  ghost-class="sortable-ghost"
+                  handle=".group-item"
+                  @end="handleDragEnd"
                 >
                   <div
                     v-for="group in localArchivedGroups"
@@ -290,6 +353,8 @@ function handleGroupCreated(group: Group) {
 <style scoped>
 :deep(.n-card__content) {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .groups-section::-webkit-scrollbar {
@@ -303,8 +368,6 @@ function handleGroupCreated(group: Group) {
 
 .group-list-card {
   height: 100%;
-  display: flex;
-  flex-direction: column;
 }
 
 .group-list-card:hover {
@@ -318,9 +381,10 @@ function handleGroupCreated(group: Group) {
 
 .groups-section {
   flex: 1;
-  height: calc(100% - 82px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .empty-container {
@@ -328,27 +392,22 @@ function handleGroupCreated(group: Group) {
 }
 
 .active-groups-container {
-  flex-grow: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
 .archived-groups-container {
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   padding-top: 12px;
 }
 
-.groups-list, .archived-list {
+.groups-list,
+.archived-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex-grow: 1;
-  overflow-y: auto;
 }
 
 .group-item {
@@ -358,7 +417,9 @@ function handleGroupCreated(group: Group) {
   padding: 8px;
   border-radius: 6px;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
   border: 1px solid transparent;
   font-size: 12px;
 }
@@ -429,20 +490,24 @@ function handleGroupCreated(group: Group) {
 }
 
 /* 滚动条样式 */
-.groups-list::-webkit-scrollbar, .archived-list::-webkit-scrollbar {
+.groups-list::-webkit-scrollbar,
+.archived-list::-webkit-scrollbar {
   width: 4px;
 }
 
-.groups-list::-webkit-scrollbar-track, .archived-list::-webkit-scrollbar-track {
+.groups-list::-webkit-scrollbar-track,
+.archived-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.groups-list::-webkit-scrollbar-thumb, .archived-list::-webkit-scrollbar-thumb {
+.groups-list::-webkit-scrollbar-thumb,
+.archived-list::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 2px;
 }
 
-.groups-list::-webkit-scrollbar-thumb:hover, .archived-list::-webkit-scrollbar-thumb:hover {
+.groups-list::-webkit-scrollbar-thumb:hover,
+.archived-list::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }
 
@@ -518,14 +583,15 @@ function handleGroupCreated(group: Group) {
 
 .sortable-ghost .group-icon,
 .sortable-ghost .group-content {
-    opacity: 0;
+  opacity: 0;
 }
 
 .group-item.sortable-chosen {
-    cursor: grabbing;
+  cursor: grabbing;
 }
 
-.groups-list > div, .archived-list > div {
-    transition: transform 0.2s ease-out;
+.groups-list > div,
+.archived-list > div {
+  transition: transform 0.2s ease-out;
 }
 </style>
