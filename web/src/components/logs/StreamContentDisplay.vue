@@ -123,9 +123,9 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
 }
 
 .content-display {
-  flex-grow: 1;
-  overflow-y: auto;
-  min-height: 200px; /* 最小高度保证可用性 */
+  max-height: 400px; /* 限制内容显示区域的最大高度 */
+  overflow-y: auto; /* 内容过长时显示滚动条 */
+  min-height: 150px; /* 最小高度保证可用性 */
   font-family: "Courier New", Consolas, monospace;
   font-size: 12px;
   line-height: 1.4;

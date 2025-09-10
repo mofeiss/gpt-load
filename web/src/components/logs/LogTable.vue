@@ -646,7 +646,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
     <n-modal
       v-model:show="showDetailModal"
       preset="card"
-      style="width: 1200px"
+      style="width: min(90vw, 1200px); max-height: 90vh; overflow-y: auto;"
       title="请求详情"
       :show-close="false"
       :mask-closable="true"
@@ -916,12 +916,14 @@ const selectedCount = computed(() => selectedLogIds.value.length);
   display: flex;
   flex-direction: column;
   width: 100%;
+  max-height: calc(90vh - 50px); /* 减去标题栏的高度 */
 }
 
 /* 头部信息区域 - 固定高度，不伸缩 */
 .modal-header-section {
   flex-shrink: 0;
   margin-bottom: 12px;
+  overflow: visible; /* 保持完整显示 */
 }
 
 /* 响应信息区域 - 自动占据剩余空间 */
@@ -929,7 +931,8 @@ const selectedCount = computed(() => selectedLogIds.value.length);
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* 确保内容不会超出模态窗口 */
+  overflow-y: auto; /* 响应信息过长时显示滚动条 */
+  min-height: 200px; /* 最小高度保证可用性 */
 }
 .log-table-container {
   /* background: white; */
@@ -994,6 +997,13 @@ const selectedCount = computed(() => selectedLogIds.value.length);
   }
 }
 
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
 @media (max-width: 480px) {
   .filter-actions {
     width: 100%;
@@ -1011,6 +1021,21 @@ const selectedCount = computed(() => selectedLogIds.value.length);
     padding-top: 8px;
     margin-top: 8px;
     justify-content: center;
+  }
+}
+
+/* 模态窗口响应式设计 */
+@media (max-width: 768px) {
+  /* 在较小屏幕上，减小模态窗口的最大高度 */
+  .modal-content-flex {
+    max-height: 75vh;
+  }
+}
+
+@media (max-width: 480px) {
+  /* 在小屏幕上，进一步减小模态窗口的高度 */
+  .modal-content-flex {
+    max-height: 65vh;
   }
 }
 
