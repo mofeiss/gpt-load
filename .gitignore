@@ -214,3 +214,6 @@ run-local.sh
 start-local.sh
 dev-setup.sh
 data/
+
+gpt-load
+main

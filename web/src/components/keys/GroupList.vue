@@ -148,39 +148,41 @@ function handleGroupCreated(group: Group) {
       <!-- 分组列表 -->
       <div class="groups-section">
         <n-spin :show="loading" size="small">
-          <!-- 常驻分组 -->
-          <div v-if="activeGroups.length === 0 && !loading" class="empty-container">
-            <n-empty size="small" :description="searchText ? '未找到匹配的分组' : '暂无分组'" />
-          </div>
-          <div v-else class="groups-list">
-            <div
-              v-for="group in activeGroups"
-              :key="group.id"
-              class="group-item"
-              :class="{ active: selectedGroup?.id === group.id }"
-              @click="handleGroupClick(group)"
-              @contextmenu="handleContextMenu($event, group)"
-            >
-              <div class="group-icon">
-                <span v-if="group.channel_type === 'openai'">🤖</span>
-                <span v-else-if="group.channel_type === 'gemini'">💎</span>
-                <span v-else-if="group.channel_type === 'anthropic'">🧠</span>
-                <span v-else>🔧</span>
-              </div>
-              <div class="group-content">
-                <div class="group-name">{{ getGroupDisplayName(group) }}</div>
-                <div class="group-meta">
-                  <n-tag size="tiny" :type="getChannelTagType(group.channel_type)">
-                    {{ group.channel_type }}
-                  </n-tag>
-                  <span class="group-id">#{{ group.name }}</span>
+          <!-- 常驻分组容器 (2/3) -->
+          <div class="active-groups-container">
+            <div v-if="activeGroups.length === 0 && !loading" class="empty-container">
+              <n-empty size="small" :description="searchText ? '未找到匹配的分组' : '暂无分组'" />
+            </div>
+            <div v-else class="groups-list">
+              <div
+                v-for="group in activeGroups"
+                :key="group.id"
+                class="group-item"
+                :class="{ active: selectedGroup?.id === group.id }"
+                @click="handleGroupClick(group)"
+                @contextmenu="handleContextMenu($event, group)"
+              >
+                <div class="group-icon">
+                  <span v-if="group.channel_type === 'openai'">🤖</span>
+                  <span v-else-if="group.channel_type === 'gemini'">💎</span>
+                  <span v-else-if="group.channel_type === 'anthropic'">🧠</span>
+                  <span v-else>🔧</span>
+                </div>
+                <div class="group-content">
+                  <div class="group-name">{{ getGroupDisplayName(group) }}</div>
+                  <div class="group-meta">
+                    <n-tag size="tiny" :type="getChannelTagType(group.channel_type)">
+                      {{ group.channel_type }}
+                    </n-tag>
+                    <span class="group-id">#{{ group.name }}</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 归档分组 -->
-          <div v-if="archivedGroups.length > 0" class="archived-section">
+          <!-- 归档分组容器 (1/3) -->
+          <div v-if="archivedGroups.length > 0" class="archived-groups-container">
             <n-collapse v-model:expanded-names="archivedExpandedArray">
               <n-collapse-item name="archived" class="archived-collapse">
                 <template #header>
@@ -280,18 +282,35 @@ function handleGroupCreated(group: Group) {
 .groups-section {
   flex: 1;
   height: calc(100% - 82px);
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .empty-container {
   padding: 20px 0;
 }
 
+.active-groups-container {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.archived-groups-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 12px;
+}
+
 .groups-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 100%;
+  flex: 1;
   overflow-y: auto;
 }
 
@@ -391,11 +410,6 @@ function handleGroupCreated(group: Group) {
 }
 
 /* 归档分组样式 */
-.archived-section {
-  margin-top: 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding-top: 12px;
-}
 
 .archived-header {
   display: flex;
@@ -413,7 +427,7 @@ function handleGroupCreated(group: Group) {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 200px;
+  flex: 1;
   overflow-y: auto;
 }
 
