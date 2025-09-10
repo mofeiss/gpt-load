@@ -30,6 +30,7 @@ interface Emits {
   (e: "update:show", value: boolean): void;
   (e: "success", value: Group): void;
   (e: "switchToGroup", groupId: number): void;
+  (e: "updated", value: Group): void;
 }
 
 // 配置项类型
@@ -525,10 +526,20 @@ async function handleSubmit() {
       res = await keysApi.createGroup(submitData);
     }
 
-    emit("success", res);
-    // 如果是新建模式，发出切换到新分组的事件
-    if (!props.group?.id && res.id) {
-      emit("switchToGroup", res.id);
+    // 根据模式发出不同事件
+    if (props.group?.id) {
+      // 编辑模式
+      emit("updated", res);
+      // 延迟500ms后刷新页面
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
+    } else {
+      // 新建模式
+      emit("success", res);
+      if (res.id) {
+        emit("switchToGroup", res.id);
+      }
     }
     handleClose();
   } finally {

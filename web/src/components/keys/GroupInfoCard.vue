@@ -21,8 +21,9 @@ import {
   NTag,
   NTooltip,
   useDialog,
+  useMessage,
 } from "naive-ui";
-import { computed, h, onMounted, ref, watch } from "vue";
+import { computed, h, onMounted, ref, watch, nextTick } from "vue";
 import GroupCopyModal from "./GroupCopyModal.vue";
 import GroupFormModal from "./GroupFormModal.vue";
 
@@ -34,6 +35,8 @@ interface Emits {
   (e: "refresh", value: Group): void;
   (e: "delete", value: Group): void;
   (e: "copy-success", group: Group): void;
+  (e: "group-updated", group: Group): void;
+  (e: "updated", group: Group): void;
 }
 
 const props = defineProps<Props>();
@@ -43,6 +46,7 @@ const emit = defineEmits<Emits>();
 const stats = ref<GroupStatsResponse | null>(null);
 const loading = ref(false);
 const dialog = useDialog();
+const message = useMessage();
 const showEditModal = ref(false);
 const showCopyModal = ref(false);
 const delLoading = ref(false);
@@ -50,6 +54,12 @@ const confirmInput = ref("");
 const expandedName = ref<string[]>([]);
 const configOptions = ref<GroupConfigOption[]>([]);
 const showProxyKeys = ref(false);
+const descriptionInput = ref<HTMLInputElement | null>(null);
+
+// 内联编辑相关状态
+const isEditingDescription = ref(false);
+const editingDescription = ref("");
+const descriptionLoading = ref(false);
 
 const proxyKeysDisplay = computed(() => {
   if (!props.group?.proxy_keys) {
@@ -188,6 +198,16 @@ function handleGroupEdited(newGroup: Group) {
   }
 }
 
+// 处理编辑分组后的更新（带刷新）
+function handleGroupUpdated(newGroup: Group) {
+  showEditModal.value = false;
+  if (newGroup) {
+    emit("refresh", newGroup);
+    // 重新加载当前分组的统计数据
+    loadStats();
+  }
+}
+
 function handleGroupCopied(newGroup: Group) {
   showCopyModal.value = false;
   if (newGroup) {
@@ -292,10 +312,65 @@ async function copyUrl(url: string) {
   }
 }
 
+// 开始编辑描述
+function startEditingDescription() {
+  if (!props.group) {
+    return;
+  }
+  isEditingDescription.value = true;
+  editingDescription.value = props.group.description || "";
+
+  // 等待DOM更新后自动聚焦到输入框
+  nextTick(() => {
+    if (descriptionInput.value) {
+      descriptionInput.value.focus();
+    }
+  });
+}
+
+// 取消编辑描述
+function cancelEditingDescription() {
+  isEditingDescription.value = false;
+  editingDescription.value = "";
+}
+
+// 保存描述编辑
+async function saveDescription() {
+  if (!props.group || descriptionLoading.value || props.group.id === undefined) {
+    return;
+  }
+
+  try {
+    descriptionLoading.value = true;
+
+    // 调用API更新分组描述
+    const updatedGroup = await keysApi.updateGroup(props.group.id, {
+      description: editingDescription.value,
+    });
+
+    // 通知父组件更新数据
+    emit("group-updated", updatedGroup);
+    isEditingDescription.value = false;
+    editingDescription.value = "";
+
+    message.success("描述已更新");
+  } catch (error) {
+    console.error("更新描述失败:", error);
+    message.error("更新描述失败，请稍后重试");
+    // 保存失败时保持编辑状态，让用户可以继续编辑
+    isEditingDescription.value = true;
+  } finally {
+    descriptionLoading.value = false;
+  }
+}
+
 function resetPage() {
   showEditModal.value = false;
   showCopyModal.value = false;
   expandedName.value = [];
+  // 重置内联编辑状态
+  isEditingDescription.value = false;
+  editingDescription.value = "";
 }
 </script>
 
@@ -453,13 +528,45 @@ function resetPage() {
       <n-divider style="margin: 0" />
 
       <!-- 分组描述区域 -->
-      <div class="group-description-section" v-if="group?.description">
-        <div class="description-content">
+      <div class="group-description-section">
+        <!-- 显示模式：点击可编辑 -->
+        <div
+          class="description-content"
+          v-if="!isEditingDescription && group?.description"
+          @click="startEditingDescription"
+          :class="{ 'description-editable': !isEditingDescription }"
+        >
           {{ group.description }}
+        </div>
+
+        <!-- 显示模式：没有描述时的占位符 -->
+        <div
+          class="description-content description-placeholder"
+          v-if="!isEditingDescription && !group?.description"
+          @click="startEditingDescription"
+          :class="{ 'description-editable': !isEditingDescription }"
+        >
+          点击添加描述...
+        </div>
+
+        <!-- 编辑模式 -->
+        <div class="description-edit-container" v-if="isEditingDescription">
+          <n-input
+            v-model:value="editingDescription"
+            type="textarea"
+            :rows="2"
+            :autosize="{ minRows: 2, maxRows: 5 }"
+            placeholder="请输入分组描述..."
+            :loading="descriptionLoading"
+            @blur="saveDescription"
+            @keyup.enter.ctrl="saveDescription"
+            @keyup.esc="cancelEditingDescription"
+            ref="descriptionInput"
+          />
         </div>
       </div>
 
-      <n-divider style="margin: 12px 0" v-if="group?.description" />
+      <n-divider style="margin: 12px 0" />
 
       <!-- 详细信息区（可折叠） -->
       <div class="details-section">
@@ -615,7 +722,12 @@ function resetPage() {
       </div>
     </n-card>
 
-    <group-form-modal v-model:show="showEditModal" :group="group" @success="handleGroupEdited" />
+    <group-form-modal
+      v-model:show="showEditModal"
+      :group="group"
+      @success="handleGroupEdited"
+      @updated="handleGroupUpdated"
+    />
     <group-copy-modal
       v-model:show="showCopyModal"
       :source-group="group"
@@ -782,6 +894,36 @@ function resetPage() {
   min-height: 20px;
   color: #374151;
   font-size: 0.9rem;
+}
+
+/* 描述可编辑状态样式 */
+.description-editable {
+  cursor: text;
+  border-radius: var(--border-radius-sm);
+  padding: 4px 8px;
+  margin: -4px -8px;
+  transition: background-color 0.2s ease;
+}
+
+.description-editable:hover {
+  background-color: rgba(102, 126, 234, 0.08);
+}
+
+.description-editable:active {
+  background-color: rgba(102, 126, 234, 0.12);
+}
+
+/* 描述占位符样式 */
+.description-placeholder {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* 描述编辑容器样式 */
+.description-edit-container {
+  display: flex;
+  flex-direction: column;
 }
 
 .proxy-keys-content {

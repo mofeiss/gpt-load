@@ -97,6 +97,19 @@ async function handleGroupCopySuccess(newGroup: Group) {
   localStorage.setItem("lastSelectedGroupId", String(newGroup.id));
   restoreSelectedGroup();
 }
+
+function handleGroupUpdated(updatedGroup: Group) {
+  // 更新当前选中的分组数据
+  if (selectedGroup.value && selectedGroup.value.id === updatedGroup.id) {
+    selectedGroup.value = updatedGroup;
+  }
+
+  // 更新分组列表中的对应分组
+  const index = groups.value.findIndex(g => g.id === updatedGroup.id);
+  if (index !== -1) {
+    groups.value[index] = updatedGroup;
+  }
+}
 </script>
 
 <template>
@@ -121,6 +134,7 @@ async function handleGroupCopySuccess(newGroup: Group) {
           @refresh="handleGroupRefresh"
           @delete="handleGroupDelete"
           @copy-success="handleGroupCopySuccess"
+          @group-updated="handleGroupUpdated"
         />
       </div>
 

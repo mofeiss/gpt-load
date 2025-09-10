@@ -67,11 +67,11 @@ const selectedLog = ref<LogRow | null>(null);
 // 请求信息折叠控制
 const isRequestInfoCollapsed = ref(false);
 const expandedNames = computed({
-  get: () => isRequestInfoCollapsed.value ? [] : ['request-info'],
+  get: () => (isRequestInfoCollapsed.value ? [] : ["request-info"]),
   set: (names: Array<string | number>) => {
-    isRequestInfoCollapsed.value = !names.includes('request-info');
+    isRequestInfoCollapsed.value = !names.includes("request-info");
     saveRequestInfoCollapseState();
-  }
+  },
 });
 
 // 从localStorage恢复折叠状态
@@ -86,7 +86,6 @@ const loadRequestInfoCollapseState = () => {
 const saveRequestInfoCollapseState = () => {
   localStorage.setItem("requestInfoCollapsed", JSON.stringify(isRequestInfoCollapsed.value));
 };
-
 
 // 处理checkbox状态变化
 const handleCheckboxChange = (checked: boolean) => {
@@ -186,7 +185,6 @@ const viewLogDetails = (row: LogRow) => {
   selectedLog.value = row;
   showDetailModal.value = true;
 };
-
 
 const formatJsonString = (jsonStr: string, tryDecompress = true) => {
   if (!jsonStr) {
@@ -670,103 +668,138 @@ const selectedCount = computed(() => selectedLogIds.value.length);
           <div class="modal-header-section">
             <!-- 基本信息 -->
             <n-card
-            title="基本信息"
-            size="small"
-            :header-style="{ padding: '8px 12px', fontSize: '13px' }"
+              title="基本信息"
+              size="small"
+              :header-style="{ padding: '8px 12px', fontSize: '13px' }"
             >
-            <div class="detail-grid-compact">
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">时间:</span>
-                <span class="detail-value-compact">
-                  {{ formatDateTime(selectedLog.timestamp) }}
-                </span>
-              </div>
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">状态:</span>
-                <n-tag :type="selectedLog.is_success ? 'success' : 'error'" size="small">
-                  {{ selectedLog.is_success ? "成功" : "失败" }} - {{ selectedLog.status_code }}
-                </n-tag>
-              </div>
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">耗时:</span>
-                <span class="detail-value-compact">{{ selectedLog.duration_ms }}ms</span>
-              </div>
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">分组:</span>
-                <span class="detail-value-compact">{{ selectedLog.group_name }}</span>
-              </div>
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">模型:</span>
-                <span class="detail-value-compact">{{ selectedLog.model }}</span>
-              </div>
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">请求类型:</span>
-                <n-tag v-if="selectedLog.request_type === 'retry'" type="warning" size="small">
-                  重试
-                </n-tag>
-                <n-tag v-else type="default" size="small">最终</n-tag>
-              </div>
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">响应类型:</span>
-                <n-tag :type="selectedLog.is_stream ? 'info' : 'default'" size="small">
-                  {{ selectedLog.is_stream ? "流式" : "非流" }}
-                </n-tag>
-              </div>
-              <div class="detail-item-compact">
-                <span class="detail-label-compact">源IP:</span>
-                <span class="detail-value-compact">{{ selectedLog.source_ip || "-" }}</span>
-              </div>
-              <div class="detail-item-compact key-item">
-                <span class="detail-label-compact">密钥:</span>
-                <div class="key-display-compact">
-                  <span class="key-value-compact">
-                    {{
-                      selectedLog.is_key_visible
-                        ? selectedLog.key_value || "-"
-                        : maskKey(selectedLog.key_value || "")
-                    }}
+              <div class="detail-grid-compact">
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">时间:</span>
+                  <span class="detail-value-compact">
+                    {{ formatDateTime(selectedLog.timestamp) }}
                   </span>
-                  <div class="key-actions-compact">
-                    <n-button size="tiny" text @click="toggleKeyVisibility(selectedLog)">
-                      <template #icon>
-                        <n-icon
-                          :component="selectedLog.is_key_visible ? EyeOffOutline : EyeOutline"
-                        />
-                      </template>
-                    </n-button>
-                    <n-button
-                      v-if="selectedLog.key_value"
-                      size="tiny"
-                      text
-                      @click="copyContent(selectedLog.key_value, 'API Key')"
-                    >
-                      <template #icon>
-                        <n-icon :component="CopyOutline" />
-                      </template>
-                    </n-button>
+                </div>
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">状态:</span>
+                  <n-tag :type="selectedLog.is_success ? 'success' : 'error'" size="small">
+                    {{ selectedLog.is_success ? "成功" : "失败" }} - {{ selectedLog.status_code }}
+                  </n-tag>
+                </div>
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">耗时:</span>
+                  <span class="detail-value-compact">{{ selectedLog.duration_ms }}ms</span>
+                </div>
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">分组:</span>
+                  <span class="detail-value-compact">{{ selectedLog.group_name }}</span>
+                </div>
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">模型:</span>
+                  <span class="detail-value-compact">{{ selectedLog.model }}</span>
+                </div>
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">请求类型:</span>
+                  <n-tag v-if="selectedLog.request_type === 'retry'" type="warning" size="small">
+                    重试
+                  </n-tag>
+                  <n-tag v-else type="default" size="small">最终</n-tag>
+                </div>
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">响应类型:</span>
+                  <n-tag :type="selectedLog.is_stream ? 'info' : 'default'" size="small">
+                    {{ selectedLog.is_stream ? "流式" : "非流" }}
+                  </n-tag>
+                </div>
+                <div class="detail-item-compact">
+                  <span class="detail-label-compact">源IP:</span>
+                  <span class="detail-value-compact">{{ selectedLog.source_ip || "-" }}</span>
+                </div>
+                <div class="detail-item-compact key-item">
+                  <span class="detail-label-compact">密钥:</span>
+                  <div class="key-display-compact">
+                    <span class="key-value-compact">
+                      {{
+                        selectedLog.is_key_visible
+                          ? selectedLog.key_value || "-"
+                          : maskKey(selectedLog.key_value || "")
+                      }}
+                    </span>
+                    <div class="key-actions-compact">
+                      <n-button size="tiny" text @click="toggleKeyVisibility(selectedLog)">
+                        <template #icon>
+                          <n-icon
+                            :component="selectedLog.is_key_visible ? EyeOffOutline : EyeOutline"
+                          />
+                        </template>
+                      </n-button>
+                      <n-button
+                        v-if="selectedLog.key_value"
+                        size="tiny"
+                        text
+                        @click="copyContent(selectedLog.key_value, 'API Key')"
+                      >
+                        <template #icon>
+                          <n-icon :component="CopyOutline" />
+                        </template>
+                      </n-button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </n-card>
+            </n-card>
 
-          <!-- 请求信息 (折叠组件) -->
-          <n-collapse
-            v-model:expanded-names="expandedNames"
-          >
-            <n-collapse-item title="请求信息" name="request-info">
-              <div class="compact-fields">
-                <div
-                  class="compact-field-row"
-                  v-if="selectedLog.request_path || selectedLog.upstream_addr"
-                >
-                  <div class="compact-field-half" v-if="selectedLog.request_path">
+            <!-- 请求信息 (折叠组件) -->
+            <n-collapse v-model:expanded-names="expandedNames">
+              <n-collapse-item title="请求信息" name="request-info">
+                <div class="compact-fields">
+                  <div
+                    class="compact-field-row"
+                    v-if="selectedLog.request_path || selectedLog.upstream_addr"
+                  >
+                    <div class="compact-field-half" v-if="selectedLog.request_path">
+                      <div class="compact-field-header">
+                        <span class="compact-field-title">请求路径</span>
+                        <n-button
+                          size="tiny"
+                          text
+                          @click="copyContent(selectedLog.request_path, '请求路径')"
+                        >
+                          <template #icon>
+                            <n-icon :component="CopyOutline" />
+                          </template>
+                        </n-button>
+                      </div>
+                      <div class="compact-field-content">
+                        {{ selectedLog.request_path }}
+                      </div>
+                    </div>
+
+                    <div class="compact-field-half" v-if="selectedLog.upstream_addr">
+                      <div class="compact-field-header">
+                        <span class="compact-field-title">上游地址</span>
+                        <n-button
+                          size="tiny"
+                          text
+                          @click="copyContent(selectedLog.upstream_addr, '上游地址')"
+                        >
+                          <template #icon>
+                            <n-icon :component="CopyOutline" />
+                          </template>
+                        </n-button>
+                      </div>
+                      <div class="compact-field-content">
+                        {{ selectedLog.upstream_addr }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="compact-field" v-if="selectedLog.user_agent">
                     <div class="compact-field-header">
-                      <span class="compact-field-title">请求路径</span>
+                      <span class="compact-field-title">User Agent</span>
                       <n-button
                         size="tiny"
                         text
-                        @click="copyContent(selectedLog.request_path, '请求路径')"
+                        @click="copyContent(selectedLog.user_agent, 'User Agent')"
                       >
                         <template #icon>
                           <n-icon :component="CopyOutline" />
@@ -774,54 +807,58 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                       </n-button>
                     </div>
                     <div class="compact-field-content">
-                      {{ selectedLog.request_path }}
+                      {{ selectedLog.user_agent }}
                     </div>
                   </div>
 
-                  <div class="compact-field-half" v-if="selectedLog.upstream_addr">
+                  <div class="compact-field" v-if="selectedLog.request_body">
                     <div class="compact-field-header">
-                      <span class="compact-field-title">上游地址</span>
+                      <span class="compact-field-title">请求内容</span>
                       <n-button
                         size="tiny"
                         text
-                        @click="copyContent(selectedLog.upstream_addr, '上游地址')"
+                        @click="copyContent(formatJsonString(selectedLog.request_body), '请求内容')"
                       >
                         <template #icon>
                           <n-icon :component="CopyOutline" />
                         </template>
                       </n-button>
                     </div>
-                    <div class="compact-field-content">
-                      {{ selectedLog.upstream_addr }}
+                    <div class="compact-field-content compact-field-content-large">
+                      {{ formatJsonString(selectedLog.request_body) }}
                     </div>
                   </div>
                 </div>
+              </n-collapse-item>
+            </n-collapse>
+          </div>
 
-                <div class="compact-field" v-if="selectedLog.user_agent">
+          <!-- 响应信息区域(可伸缩) -->
+          <div class="modal-response-section">
+            <n-card
+              v-if="selectedLog.response_body"
+              title="响应信息"
+              size="small"
+              :header-style="{ padding: '8px 12px', fontSize: '13px' }"
+            >
+              <!-- 流式响应：双列布局 -->
+              <stream-content-display
+                v-if="selectedLog.is_stream"
+                :stream-content="selectedLog.stream_content"
+                :raw-content="selectedLog.response_body"
+              />
+
+              <!-- 非流式响应：单列显示原文 -->
+              <div v-else class="compact-fields">
+                <div class="compact-field">
                   <div class="compact-field-header">
-                    <span class="compact-field-title">User Agent</span>
+                    <span class="compact-field-title">响应内容</span>
                     <n-button
                       size="tiny"
                       text
-                      @click="copyContent(selectedLog.user_agent, 'User Agent')"
-                    >
-                      <template #icon>
-                        <n-icon :component="CopyOutline" />
-                      </template>
-                    </n-button>
-                  </div>
-                  <div class="compact-field-content">
-                    {{ selectedLog.user_agent }}
-                  </div>
-                </div>
-
-                <div class="compact-field" v-if="selectedLog.request_body">
-                  <div class="compact-field-header">
-                    <span class="compact-field-title">请求内容</span>
-                    <n-button
-                      size="tiny"
-                      text
-                      @click="copyContent(formatJsonString(selectedLog.request_body), '请求内容')"
+                      @click="
+                        copyContent(formatJsonString(selectedLog.response_body, true), '响应内容')
+                      "
                     >
                       <template #icon>
                         <n-icon :component="CopyOutline" />
@@ -829,78 +866,37 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                     </n-button>
                   </div>
                   <div class="compact-field-content compact-field-content-large">
-                    {{ formatJsonString(selectedLog.request_body) }}
+                    {{ formatJsonString(selectedLog.response_body, true) }}
                   </div>
                 </div>
               </div>
-            </n-collapse-item>
-          </n-collapse>
-          </div>
+            </n-card>
 
-          <!-- 响应信息区域(可伸缩) -->
-          <div class="modal-response-section">
+            <!-- 错误信息 -->
             <n-card
-            v-if="selectedLog.response_body"
-            title="响应信息"
-            size="small"
-            :header-style="{ padding: '8px 12px', fontSize: '13px' }"
-          >
-            <!-- 流式响应：双列布局 -->
-            <stream-content-display
-              v-if="selectedLog.is_stream"
-              :stream-content="selectedLog.stream_content"
-              :raw-content="selectedLog.response_body"
-            />
-
-            <!-- 非流式响应：单列显示原文 -->
-            <div v-else class="compact-fields">
-              <div class="compact-field">
-                <div class="compact-field-header">
-                  <span class="compact-field-title">响应内容</span>
-                  <n-button
-                    size="tiny"
-                    text
-                    @click="
-                      copyContent(formatJsonString(selectedLog.response_body, true), '响应内容')
-                    "
-                  >
-                    <template #icon>
-                      <n-icon :component="CopyOutline" />
-                    </template>
-                  </n-button>
-                </div>
-                <div class="compact-field-content compact-field-content-large">
-                  {{ formatJsonString(selectedLog.response_body, true) }}
+              v-if="selectedLog.error_message"
+              title="错误信息"
+              size="small"
+              :header-style="{ padding: '8px 12px', fontSize: '13px' }"
+            >
+              <template #header-extra>
+                <n-button
+                  size="tiny"
+                  text
+                  ghost
+                  @click="copyContent(selectedLog.error_message, '错误信息')"
+                >
+                  <template #icon>
+                    <n-icon :component="CopyOutline" />
+                  </template>
+                </n-button>
+              </template>
+              <div class="compact-field compact-field-error">
+                <div class="compact-field-content">
+                  {{ selectedLog.error_message }}
                 </div>
               </div>
-            </div>
-          </n-card>
-
-          <!-- 错误信息 -->
-          <n-card
-            v-if="selectedLog.error_message"
-            title="错误信息"
-            size="small"
-            :header-style="{ padding: '8px 12px', fontSize: '13px' }"
-          >
-            <template #header-extra>
-              <n-button
-                size="tiny"
-                text
-                ghost
-                @click="copyContent(selectedLog.error_message, '错误信息')"
-              >
-                <template #icon>
-                  <n-icon :component="CopyOutline" />
-                </template>
-              </n-button>
-            </template>
-            <div class="compact-field compact-field-error">
-              <div class="compact-field-content">
-                {{ selectedLog.error_message }}
-              </div>
-            </div>
-          </n-card>
+            </n-card>
           </div>
         </div>
       </div>

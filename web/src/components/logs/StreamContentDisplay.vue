@@ -17,12 +17,14 @@ console.log("【前端插桩】StreamContentDisplay 接收到的数据:", {
   streamContent: props.streamContent,
   rawContent: props.rawContent ? `长度: ${props.rawContent.length}` : "无数据",
   streamContentExists: !!props.streamContent,
-  streamContentFields: props.streamContent ? {
-    thinking_chain: props.streamContent.thinking_chain?.length || 0,
-    text_messages: props.streamContent.text_messages?.length || 0,
-    tool_calls: props.streamContent.tool_calls?.length || 0,
-    raw_content: props.streamContent.raw_content?.length || 0
-  } : null
+  streamContentFields: props.streamContent
+    ? {
+        thinking_chain: props.streamContent.thinking_chain?.length || 0,
+        text_messages: props.streamContent.text_messages?.length || 0,
+        tool_calls: props.streamContent.tool_calls?.length || 0,
+        raw_content: props.streamContent.raw_content?.length || 0,
+      }
+    : null,
 });
 
 // 复制功能
@@ -67,13 +69,13 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
       <!-- 左侧：原文内容 -->
       <n-grid-item>
         <n-card title="原文内容" size="small" class="raw-content-card">
-        <template #header-extra>
-          <n-button size="tiny" text @click="copyContent(props.rawContent, '原文内容')">
-            <template #icon>
-              <n-icon :component="CopyOutline" />
-            </template>
-          </n-button>
-        </template>
+          <template #header-extra>
+            <n-button size="tiny" text @click="copyContent(props.rawContent, '原文内容')">
+              <template #icon>
+                <n-icon :component="CopyOutline" />
+              </template>
+            </n-button>
+          </template>
           <div class="content-display raw-content">
             {{ props.rawContent }}
           </div>
@@ -83,18 +85,18 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
       <!-- 右侧：解析后内容 -->
       <n-grid-item>
         <n-card title="解析后内容" size="small" class="parsed-content-card">
-        <template #header-extra>
-          <n-button
-            v-if="props.streamContent"
-            size="tiny"
-            text
-            @click="copyContent(formatStreamContentAsMarkdown(props.streamContent), '解析后内容')"
-          >
-            <template #icon>
-              <n-icon :component="CopyOutline" />
-            </template>
-          </n-button>
-        </template>
+          <template #header-extra>
+            <n-button
+              v-if="props.streamContent"
+              size="tiny"
+              text
+              @click="copyContent(formatStreamContentAsMarkdown(props.streamContent), '解析后内容')"
+            >
+              <template #icon>
+                <n-icon :component="CopyOutline" />
+              </template>
+            </n-button>
+          </template>
           <div class="content-display parsed-content">
             <div v-if="props.streamContent">
               {{ formatStreamContentAsMarkdown(props.streamContent) }}
