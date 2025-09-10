@@ -4,7 +4,7 @@ import type { Group, GroupConfigOption, GroupStatsResponse } from "@/types/model
 import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
-import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Trash } from "@vicons/ionicons5";
+import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
 import {
   NButton,
   NButtonGroup,
@@ -23,7 +23,7 @@ import {
   useDialog,
   useMessage,
 } from "naive-ui";
-import { computed, h, onMounted, ref, watch, nextTick } from "vue";
+import { computed, h, nextTick, onMounted, ref, watch } from "vue";
 import GroupCopyModal from "./GroupCopyModal.vue";
 import GroupFormModal from "./GroupFormModal.vue";
 
@@ -56,6 +56,12 @@ const configOptions = ref<GroupConfigOption[]>([]);
 const showProxyKeys = ref(false);
 const descriptionInput = ref<HTMLInputElement | null>(null);
 
+// 渠道切换相关状态
+const channelSwitchLoading = ref(false);
+
+// 渠道类型循环顺序
+const channelTypeCycle = ["openai", "anthropic", "gemini"] as const;
+
 // 内联编辑相关状态
 const isEditingDescription = ref(false);
 const editingDescription = ref("");
@@ -71,6 +77,30 @@ const proxyKeysDisplay = computed(() => {
   return maskProxyKeys(props.group.proxy_keys);
 });
 
+// 获取当前渠道类型的接口路径
+const getChannelEndpoint = (channelType: string) => {
+  switch (channelType) {
+    case "openai":
+      return "/v1/chat/completions";
+    case "anthropic":
+      return "/v1/messages";
+    case "gemini":
+      return "/v1beta/models/";
+    default:
+      return "";
+  }
+};
+
+// 生成完整 URL
+const fullUpstreamUrl = computed(() => {
+  if (!props.group?.upstreams || props.group.upstreams.length === 0) {
+    return "";
+  }
+  const upstream = props.group.upstreams[0];
+  const endpoint = getChannelEndpoint(props.group.channel_type);
+  return `${upstream.url}${endpoint}`;
+});
+
 const hasAdvancedConfig = computed(() => {
   return (
     (props.group?.config && Object.keys(props.group.config).length > 0) ||
@@ -78,6 +108,45 @@ const hasAdvancedConfig = computed(() => {
     (props.group?.header_rules && props.group.header_rules.length > 0)
   );
 });
+
+// 渠道类型切换函数
+async function switchChannelType() {
+  if (!props.group || !props.group.id || channelSwitchLoading.value) {
+    return;
+  }
+
+  const currentChannelType = props.group.channel_type;
+  const currentIndex = channelTypeCycle.indexOf(
+    currentChannelType as "openai" | "anthropic" | "gemini"
+  );
+
+  if (currentIndex === -1) {
+    return;
+  }
+
+  const nextIndex = (currentIndex + 1) % channelTypeCycle.length;
+  const newChannelType = channelTypeCycle[nextIndex];
+
+  try {
+    channelSwitchLoading.value = true;
+
+    // 调用 API 更新分组渠道类型
+    const updatedGroup = await keysApi.updateGroup(props.group.id, {
+      channel_type: newChannelType,
+      validation_endpoint: getChannelEndpoint(newChannelType),
+    });
+
+    // 通知父组件更新数据
+    emit("group-updated", updatedGroup);
+
+    //message.success(`渠道类型已切换至 ${newChannelType}`);
+  } catch (error) {
+    console.error("切换渠道类型失败:", error);
+    message.error("切换渠道类型失败，请稍后重试");
+  } finally {
+    channelSwitchLoading.value = false;
+  }
+}
 
 async function copyProxyKeys() {
   if (!props.group?.proxy_keys) {
@@ -380,17 +449,53 @@ function resetPage() {
       <template #header>
         <div class="card-header">
           <div class="header-left">
-            <h3 class="group-title">
-              {{ group ? getGroupDisplayName(group) : "请选择分组" }}
-              <n-tooltip trigger="hover" v-if="group && group.endpoint">
+            <div class="header-title-section">
+              <h3 class="group-title">
+                {{ group ? getGroupDisplayName(group) : "请选择分组" }}
+                <n-tooltip trigger="hover" v-if="group && group.endpoint">
+                  <template #trigger>
+                    <code class="group-url" @click="copyUrl(group.endpoint)">
+                      {{ group.endpoint }}
+                    </code>
+                  </template>
+                  点击复制
+                </n-tooltip>
+              </h3>
+
+              <!-- 渠道切换按钮 -->
+              <n-tooltip
+                trigger="hover"
+                v-if="group && group.upstreams && group.upstreams.length > 0"
+              >
                 <template #trigger>
-                  <code class="group-url" @click="copyUrl(group.endpoint)">
-                    {{ group.endpoint }}
-                  </code>
+                  <n-button
+                    quaternary
+                    circle
+                    size="small"
+                    @click="switchChannelType"
+                    :loading="channelSwitchLoading"
+                    class="channel-switch-main-btn"
+                  >
+                    <template #icon>
+                      <n-icon :component="Refresh" />
+                    </template>
+                  </n-button>
                 </template>
-                点击复制
+                切换渠道类型 ({{ group.channel_type }})
               </n-tooltip>
-            </h3>
+            </div>
+
+            <!-- 新增：上游地址和接口路径展示 -->
+            <div
+              class="upstream-endpoint-section"
+              v-if="group && group.upstreams && group.upstreams.length > 0"
+            >
+              <div class="upstream-endpoint-content">
+                <code class="upstream-endpoint-url" @click="copyUrl(fullUpstreamUrl)">
+                  {{ fullUpstreamUrl }}
+                </code>
+              </div>
+            </div>
           </div>
           <div class="header-actions">
             <n-button
@@ -754,13 +859,22 @@ function resetPage() {
 
 .card-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   width: 100%;
 }
 
 .header-left {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .group-title {
@@ -779,6 +893,50 @@ function resetPage() {
   border-radius: 4px;
   padding: 2px 6px;
   margin-right: 4px;
+}
+
+/* 上游地址和接口路径展示区域 */
+.upstream-endpoint-section {
+  padding: 0px 0;
+  margin-top: -5px;
+}
+
+.upstream-endpoint-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.upstream-endpoint-url {
+  font-size: 0.8rem;
+  color: #059669;
+  font-family: monospace;
+  background: rgba(5, 150, 105, 0.1);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upstream-endpoint-url:hover {
+  background: rgba(5, 150, 105, 0.2);
+}
+
+/* 主渠道切换按钮样式 */
+.channel-switch-main-btn {
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+}
+
+.channel-switch-main-btn:hover {
+  opacity: 1;
 }
 
 /* .group-meta {
