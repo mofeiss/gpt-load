@@ -477,6 +477,65 @@ func (s *Server) UpdateGroup(c *gin.Context) {
 	response.Success(c, s.newGroupResponse(&group))
 }
 
+// UpdateGroupsOrderRequest defines the payload for updating groups order.
+type UpdateGroupsOrderRequest struct {
+	Groups []struct {
+		ID       uint `json:"id"`
+		Sort     int  `json:"sort"`
+		Archived bool `json:"archived"`
+	} `json:"groups"`
+}
+
+// UpdateGroupsOrder handles batch updating of group sort order and archived status.
+func (s *Server) UpdateGroupsOrder(c *gin.Context) {
+	var req UpdateGroupsOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInvalidJSON, err.Error()))
+		return
+	}
+
+	tx := s.DB.Begin()
+	if tx.Error != nil {
+		response.Error(c, app_errors.ErrDatabase)
+		return
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+	for _, g := range req.Groups {
+		var groupToUpdate models.Group
+		if err := tx.First(&groupToUpdate, g.ID).Error; err != nil {
+			response.Error(c, app_errors.ParseDBError(err))
+			return
+		}
+
+		groupToUpdate.Sort = g.Sort
+		groupToUpdate.Archived = g.Archived
+		if g.Archived {
+			groupToUpdate.ArchivedAt = &now
+		} else {
+			groupToUpdate.ArchivedAt = nil
+		}
+
+		if err := tx.Save(&groupToUpdate).Error; err != nil {
+			response.Error(c, app_errors.ParseDBError(err))
+			return
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		response.Error(c, app_errors.ErrDatabase)
+		return
+	}
+
+	if err := s.GroupManager.Invalidate(); err != nil {
+		logrus.WithContext(c.Request.Context()).WithError(err).Error("failed to invalidate group cache")
+	}
+
+	response.Success(c, gin.H{"message": "Groups order updated successfully"})
+}
+
+
 // GroupResponse defines the structure for a group response, excluding sensitive or large fields.
 type GroupResponse struct {
 	ID                 uint                `json:"id"`

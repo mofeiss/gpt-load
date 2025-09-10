@@ -44,6 +44,11 @@ export const keysApi = {
     return http.delete(`/groups/${groupId}`);
   },
 
+  // 批量更新分组排序和状态
+  async updateGroupsOrder(groups: Partial<Group>[]): Promise<void> {
+    return http.put("/groups/order", { groups });
+  },
+
   // 获取分组统计信息
   async getGroupStats(groupId: number): Promise<GroupStatsResponse> {
     const res = await http.get(`/groups/${groupId}/stats`);

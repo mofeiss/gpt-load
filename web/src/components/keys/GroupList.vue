@@ -6,6 +6,7 @@ import { NButton, NCard, NEmpty, NInput, NSpin, NTag, NCollapse, NCollapseItem }
 import { computed, ref, watch } from "vue";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupContextMenu from "./GroupContextMenu.vue";
+import { VueDraggableNext } from "vue-draggable-next";
 
 interface Props {
   groups: Group[];
@@ -20,6 +21,7 @@ interface Emits {
   (e: "group-archived", group: Group): void;
   (e: "group-unarchived", group: Group): void;
   (e: "group-updated", group: Group): void;
+  (e: "groups-order-updated", groups: Group[]): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -71,15 +73,38 @@ const filteredGroups = computed(() => {
   );
 });
 
-// 常驻分组（未归档）
-const activeGroups = computed(() => {
-  return filteredGroups.value.filter(group => !group.archived);
+const localActiveGroups = computed({
+  get: () => filteredGroups.value.filter(group => !group.archived),
+  set: (newActiveGroups) => {
+    const newArchivedGroups = localArchivedGroups.value;
+    updateGroups(newActiveGroups, newArchivedGroups);
+  }
 });
 
-// 归档分组
-const archivedGroups = computed(() => {
-  return filteredGroups.value.filter(group => group.archived);
+const localArchivedGroups = computed({
+  get: () => filteredGroups.value.filter(group => group.archived),
+  set: (newArchivedGroups) => {
+    const newActiveGroups = localActiveGroups.value;
+    updateGroups(newActiveGroups, newArchivedGroups);
+  }
 });
+
+function updateGroups(active: Group[], archived: Group[]) {
+  const activeWithState = active.map((group, index) => ({
+    ...group,
+    archived: false,
+    sort: index,
+  }));
+
+  const archivedWithState = archived.map((group, index) => ({
+    ...group,
+    archived: true,
+    sort: active.length + index,
+  }));
+
+  emit("groups-order-updated", [...activeWithState, ...archivedWithState]);
+}
+
 
 function handleGroupClick(group: Group) {
   emit("group-select", group);
@@ -148,14 +173,20 @@ function handleGroupCreated(group: Group) {
       <!-- 分组列表 -->
       <div class="groups-section">
         <n-spin :show="loading" size="small">
-          <!-- 常驻分组容器 (2/3) -->
+          <!-- 常驻分组容器 -->
           <div class="active-groups-container">
-            <div v-if="activeGroups.length === 0 && !loading" class="empty-container">
-              <n-empty size="small" :description="searchText ? '未找到匹配的分组' : '暂无分组'" />
-            </div>
-            <div v-else class="groups-list">
+            <n-empty v-if="localActiveGroups.length === 0 && !loading" size="small" :description="searchText ? '未找到匹配的分组' : '暂无分组'" class="empty-container"/>
+            <VueDraggableNext
+                v-else
+                v-model="localActiveGroups"
+                class="groups-list"
+                group="groups"
+                :animation="150"
+                ghost-class="sortable-ghost"
+                handle=".group-item"
+            >
               <div
-                v-for="group in activeGroups"
+                v-for="group in localActiveGroups"
                 :key="group.id"
                 class="group-item"
                 :class="{ active: selectedGroup?.id === group.id }"
@@ -178,22 +209,28 @@ function handleGroupCreated(group: Group) {
                   </div>
                 </div>
               </div>
-            </div>
+            </VueDraggableNext>
           </div>
 
-          <!-- 归档分组容器 (1/3) -->
-          <div v-if="archivedGroups.length > 0" class="archived-groups-container">
+          <!-- 归档分组容器 -->
+          <div v-if="localArchivedGroups.length > 0 || searchText" class="archived-groups-container">
             <n-collapse v-model:expanded-names="archivedExpandedArray">
               <n-collapse-item name="archived" class="archived-collapse">
                 <template #header>
                   <div class="archived-header">
-                    <span class="archived-title">归档分组 ({{ archivedGroups.length }})</span>
+                    <span class="archived-title">归档分组 ({{ localArchivedGroups.length }})</span>
                   </div>
                 </template>
-
-                <div class="archived-list">
+                <VueDraggableNext
+                    v-model="localArchivedGroups"
+                    class="archived-list"
+                    group="groups"
+                    :animation="150"
+                    ghost-class="sortable-ghost"
+                    handle=".group-item"
+                >
                   <div
-                    v-for="group in archivedGroups"
+                    v-for="group in localArchivedGroups"
                     :key="group.id"
                     class="group-item archived-item"
                     :class="{ active: selectedGroup?.id === group.id }"
@@ -215,7 +252,7 @@ function handleGroupCreated(group: Group) {
                       </div>
                     </div>
                   </div>
-                </div>
+                </VueDraggableNext>
               </n-collapse-item>
             </n-collapse>
           </div>
@@ -291,14 +328,14 @@ function handleGroupCreated(group: Group) {
 }
 
 .active-groups-container {
-  flex: 2;
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
 .archived-groups-container {
-  flex: 1;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -306,11 +343,11 @@ function handleGroupCreated(group: Group) {
   padding-top: 12px;
 }
 
-.groups-list {
+.groups-list, .archived-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
+  flex-grow: 1;
   overflow-y: auto;
 }
 
@@ -321,7 +358,7 @@ function handleGroupCreated(group: Group) {
   padding: 8px;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
   border: 1px solid transparent;
   font-size: 12px;
 }
@@ -392,20 +429,20 @@ function handleGroupCreated(group: Group) {
 }
 
 /* 滚动条样式 */
-.groups-list::-webkit-scrollbar {
+.groups-list::-webkit-scrollbar, .archived-list::-webkit-scrollbar {
   width: 4px;
 }
 
-.groups-list::-webkit-scrollbar-track {
+.groups-list::-webkit-scrollbar-track, .archived-list::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.groups-list::-webkit-scrollbar-thumb {
+.groups-list::-webkit-scrollbar-thumb, .archived-list::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 2px;
 }
 
-.groups-list::-webkit-scrollbar-thumb:hover {
+.groups-list::-webkit-scrollbar-thumb:hover, .archived-list::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }
 
@@ -421,14 +458,6 @@ function handleGroupCreated(group: Group) {
   font-size: 12px;
   font-weight: 600;
   color: #64748b;
-}
-
-.archived-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-  overflow-y: auto;
 }
 
 .archived-item {
@@ -479,21 +508,24 @@ function handleGroupCreated(group: Group) {
   padding-top: 8px;
 }
 
-/* 归档列表滚动条 */
-.archived-list::-webkit-scrollbar {
-  width: 3px;
-}
-
-.archived-list::-webkit-scrollbar-track {
+/* 拖拽相关样式 */
+.sortable-ghost {
+  opacity: 1;
   background: transparent;
+  border: 2px dashed #667eea;
+  border-radius: 6px;
 }
 
-.archived-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 2px;
+.sortable-ghost .group-icon,
+.sortable-ghost .group-content {
+    opacity: 0;
 }
 
-.archived-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+.group-item.sortable-chosen {
+    cursor: grabbing;
+}
+
+.groups-list > div, .archived-list > div {
+    transition: transform 0.2s ease-out;
 }
 </style>
