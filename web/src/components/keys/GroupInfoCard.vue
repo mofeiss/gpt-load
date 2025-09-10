@@ -5,27 +5,8 @@ import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
 import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
-import {
-  NButton,
-  NButtonGroup,
-  NCard,
-  NCollapse,
-  NCollapseItem,
-  NForm,
-  NFormItem,
-  NGrid,
-  NGridItem,
-  NIcon,
-  NInput,
-  NSpin,
-  NTag,
-  NTooltip,
-  useDialog,
-  useMessage,
-} from "naive-ui";
+import { NButton, NCard, NIcon, NInput, NTooltip, useDialog, useMessage } from "naive-ui";
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
-import GroupCopyModal from "./GroupCopyModal.vue";
-import GroupFormModal from "./GroupFormModal.vue";
 
 interface Props {
   group: Group | null;
@@ -300,21 +281,22 @@ async function handleDelete() {
       confirmInput.value = ""; // Reset before opening second dialog
       dialog.create({
         title: "请输入分组名称以确认删除",
-        content: () =>
-          h("div", null, [
-            h("p", null, [
+        content: () => {
+          return h("div", {}, [
+            h("p", {}, [
               "这是一个非常危险的操作。为防止误操作，请输入分组名称 ",
               h("strong", { style: { color: "#d03050" } }, props.group?.name),
               " 以确认删除。",
             ]),
             h(NInput, {
               value: confirmInput.value,
-              "onUpdate:value": v => {
+              "onUpdate:value": (v: string) => {
                 confirmInput.value = v;
               },
               placeholder: "请输入分组名称",
             }),
-          ]),
+          ]);
+        },
         positiveText: "确认删除",
         negativeText: "取消",
         onPositiveClick: async () => {
@@ -448,21 +430,47 @@ function resetPage() {
     <n-card :bordered="false" class="group-info-card">
       <template #header>
         <div class="card-header">
-          <div class="header-left">
-            <div class="header-title-section">
+          <!-- 第 1 列：分组名称和显示名称 -->
+          <div class="header-column-1">
+            <div class="column-row-1">
               <h3 class="group-title">
                 {{ group ? getGroupDisplayName(group) : "请选择分组" }}
-                <n-tooltip trigger="hover" v-if="group && group.endpoint">
-                  <template #trigger>
-                    <code class="group-url" @click="copyUrl(group.endpoint)">
-                      {{ group.endpoint }}
-                    </code>
-                  </template>
-                  点击复制
-                </n-tooltip>
               </h3>
+            </div>
+            <div class="column-row-2">
+              <span v-if="group && group.display_name" class="group-display-name">
+                {{ group.display_name }}
+              </span>
+            </div>
+          </div>
 
-              <!-- 渠道切换按钮 -->
+          <!-- 第 2 列：代理网址和上游拼接地址 -->
+          <div class="header-column-2">
+            <div class="column-row-1">
+              <n-tooltip trigger="hover" v-if="group && group.endpoint">
+                <template #trigger>
+                  <code class="group-url" @click="copyUrl(group.endpoint)">
+                    {{ group.endpoint }}
+                  </code>
+                </template>
+                点击复制
+              </n-tooltip>
+            </div>
+            <div class="column-row-2" v-if="group && group.upstreams && group.upstreams.length > 0">
+              <n-tooltip trigger="hover">
+                <template #trigger>
+                  <code class="upstream-endpoint-url" @click="copyUrl(fullUpstreamUrl)">
+                    {{ fullUpstreamUrl }}
+                  </code>
+                </template>
+                点击复制完整地址
+              </n-tooltip>
+            </div>
+          </div>
+
+          <!-- 第 3 列：刷新、复制、编辑、删除按钮 -->
+          <div class="header-column-3">
+            <div class="column-row-1">
               <n-tooltip
                 trigger="hover"
                 v-if="group && group.upstreams && group.upstreams.length > 0"
@@ -474,7 +482,7 @@ function resetPage() {
                     size="small"
                     @click="switchChannelType"
                     :loading="channelSwitchLoading"
-                    class="channel-switch-main-btn"
+                    class="channel-switch-btn"
                   >
                     <template #icon>
                       <n-icon :component="Refresh" />
@@ -483,51 +491,48 @@ function resetPage() {
                 </template>
                 切换渠道类型 ({{ group.channel_type }})
               </n-tooltip>
+              <n-button
+                quaternary
+                circle
+                size="small"
+                @click="handleCopy"
+                title="复制分组"
+                :disabled="!group"
+                class="copy-btn"
+              >
+                <template #icon>
+                  <n-icon :component="CopyOutline" />
+                </template>
+              </n-button>
             </div>
-
-            <!-- 新增：上游地址和接口路径展示 -->
-            <div
-              class="upstream-endpoint-section"
-              v-if="group && group.upstreams && group.upstreams.length > 0"
-            >
-              <div class="upstream-endpoint-content">
-                <code class="upstream-endpoint-url" @click="copyUrl(fullUpstreamUrl)">
-                  {{ fullUpstreamUrl }}
-                </code>
-              </div>
+            <div class="column-row-2">
+              <n-button
+                quaternary
+                circle
+                size="small"
+                @click="handleEdit"
+                title="编辑分组"
+                class="edit-btn"
+              >
+                <template #icon>
+                  <n-icon :component="Pencil" />
+                </template>
+              </n-button>
+              <n-button
+                quaternary
+                circle
+                size="small"
+                @click="handleDelete"
+                title="删除分组"
+                type="error"
+                :disabled="!group"
+                class="delete-btn"
+              >
+                <template #icon>
+                  <n-icon :component="Trash" />
+                </template>
+              </n-button>
             </div>
-          </div>
-          <div class="header-actions">
-            <n-button
-              quaternary
-              circle
-              size="small"
-              @click="handleCopy"
-              title="复制分组"
-              :disabled="!group"
-            >
-              <template #icon>
-                <n-icon :component="CopyOutline" />
-              </template>
-            </n-button>
-            <n-button quaternary circle size="small" @click="handleEdit" title="编辑分组">
-              <template #icon>
-                <n-icon :component="Pencil" />
-              </template>
-            </n-button>
-            <n-button
-              quaternary
-              circle
-              size="small"
-              @click="handleDelete"
-              title="删除分组"
-              type="error"
-              :disabled="!group"
-            >
-              <template #icon>
-                <n-icon :component="Trash" />
-              </template>
-            </n-button>
           </div>
         </div>
       </template>
@@ -858,20 +863,44 @@ function resetPage() {
 }
 
 .card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 8px 16px;
+  align-items: center;
   width: 100%;
 }
 
-.header-left {
-  flex: 1;
+.header-column-1 {
+  justify-self: start;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.header-title-section {
+.header-column-2 {
+  justify-self: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.header-column-3 {
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.column-row-1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.column-row-2 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -881,31 +910,24 @@ function resetPage() {
   font-size: 1.2rem;
   font-weight: 600;
   color: #1e293b;
-  margin: 0 0 8px 0;
+  margin: 0;
 }
 
 .group-url {
   font-size: 0.8rem;
   color: #2563eb;
-  margin-left: 8px;
   font-family: monospace;
   background: rgba(37, 99, 235, 0.1);
   border-radius: 4px;
   padding: 2px 6px;
-  margin-right: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 /* 上游地址和接口路径展示区域 */
 .upstream-endpoint-section {
   padding: 0px 0;
-  margin-top: -5px;
-}
-
-.upstream-endpoint-content {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
+  width: 100%;
 }
 
 .upstream-endpoint-url {
@@ -917,7 +939,7 @@ function resetPage() {
   padding: 4px 8px;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  flex: 1;
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -928,15 +950,32 @@ function resetPage() {
   background: rgba(5, 150, 105, 0.2);
 }
 
-/* 主渠道切换按钮样式 */
-.channel-switch-main-btn {
+/* 分组显示名称样式 */
+.group-display-name {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* 按钮样式 */
+.channel-switch-btn,
+.copy-btn,
+.edit-btn,
+.delete-btn {
   opacity: 0.8;
   transition: opacity 0.2s ease;
   flex-shrink: 0;
 }
 
-.channel-switch-main-btn:hover {
+.channel-switch-btn:hover,
+.copy-btn:hover,
+.edit-btn:hover,
+.delete-btn:hover {
   opacity: 1;
+}
+
+.group-url:hover {
+  background: rgba(37, 99, 235, 0.2);
 }
 
 /* .group-meta {
