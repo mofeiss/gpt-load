@@ -7,6 +7,8 @@ import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
 import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
 import { NButton, NCard, NIcon, NInput, NTooltip, useDialog, useMessage } from "naive-ui";
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
+import GroupFormModal from "./GroupFormModal.vue";
+import GroupCopyModal from "./GroupCopyModal.vue";
 
 interface Props {
   group: Group | null;
@@ -434,13 +436,14 @@ function resetPage() {
           <div class="header-column-1">
             <div class="column-row-1">
               <h3 class="group-title">
-                {{ group ? getGroupDisplayName(group) : "请选择分组" }}
+                {{ group ? group.name : "请选择分组" }}
               </h3>
             </div>
             <div class="column-row-2">
               <span v-if="group && group.display_name" class="group-display-name">
                 {{ group.display_name }}
               </span>
+              <span v-else class="group-display-name-placeholder">&nbsp;</span>
             </div>
           </div>
 
@@ -449,9 +452,9 @@ function resetPage() {
             <div class="column-row-1">
               <n-tooltip trigger="hover" v-if="group && group.endpoint">
                 <template #trigger>
-                  <code class="group-url" @click="copyUrl(group.endpoint)">
+                  <div class="group-url" @click="copyUrl(group.endpoint)">
                     {{ group.endpoint }}
-                  </code>
+                  </div>
                 </template>
                 点击复制
               </n-tooltip>
@@ -459,9 +462,9 @@ function resetPage() {
             <div class="column-row-2" v-if="group && group.upstreams && group.upstreams.length > 0">
               <n-tooltip trigger="hover">
                 <template #trigger>
-                  <code class="upstream-endpoint-url" @click="copyUrl(fullUpstreamUrl)">
+                  <div class="upstream-endpoint-url" @click="copyUrl(fullUpstreamUrl)">
                     {{ fullUpstreamUrl }}
-                  </code>
+                  </div>
                 </template>
                 点击复制完整地址
               </n-tooltip>
@@ -879,12 +882,13 @@ function resetPage() {
 }
 
 .header-column-2 {
-  justify-self: center;
+  justify-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 4px;
   flex: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .header-column-3 {
@@ -922,6 +926,13 @@ function resetPage() {
   padding: 2px 6px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+  box-sizing: border-box;
 }
 
 /* 上游地址和接口路径展示区域 */
@@ -944,6 +955,8 @@ function resetPage() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  display: block;
+  box-sizing: border-box;
 }
 
 .upstream-endpoint-url:hover {
@@ -955,6 +968,14 @@ function resetPage() {
   font-size: 0.9rem;
   color: #64748b;
   font-weight: 500;
+}
+
+/* 分组显示名称占位符样式 */
+.group-display-name-placeholder {
+  font-size: 0.9rem;
+  color: transparent;
+  font-weight: 500;
+  visibility: hidden;
 }
 
 /* 按钮样式 */

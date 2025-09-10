@@ -6,12 +6,14 @@ import KeyTable from "@/components/keys/KeyTable.vue";
 import type { Group } from "@/types/models";
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useMessage } from "naive-ui";
 
 const groups = ref<Group[]>([]);
 const loading = ref(false);
 const selectedGroup = ref<Group | null>(null);
 const router = useRouter();
 const route = useRoute();
+const message = useMessage();
 
 onMounted(async () => {
   await loadGroups();
@@ -21,8 +23,9 @@ onMounted(async () => {
 async function loadGroups() {
   try {
     loading.value = true;
-    groups.value = await keysApi.getGroups();
-    // 只处理 URL 参数中的分组 ID，不自动选择第一个分组
+    const fetchedGroups = await keysApi.getGroups();
+    // 按 sort 字段和 id 排序
+    groups.value = fetchedGroups.sort((a, b) => (a.sort ?? a.id) - (b.sort ?? b.id));
     if (groups.value.length > 0 && !selectedGroup.value && route.query.groupId) {
       const found = groups.value.find(g => String(g.id) === String(route.query.groupId));
       if (found) {
@@ -35,7 +38,6 @@ async function loadGroups() {
 }
 
 function restoreSelectedGroup() {
-  // 从 localStorage 读取保存的分组 ID 并自动切换
   const savedGroupId = localStorage.getItem("lastSelectedGroupId");
   if (savedGroupId && groups.value.length > 0) {
     const savedGroup = groups.value.find(g => String(g.id) === savedGroupId);
@@ -45,16 +47,15 @@ function restoreSelectedGroup() {
     }
   }
 
-  // 如果没有保存的分组，或者保存的分组不存在，则选择第一个分组
   if (groups.value.length > 0 && !selectedGroup.value) {
-    handleGroupSelect(groups.value[0]);
+    const firstGroup = groups.value.find(g => !g.archived) || groups.value[0];
+    handleGroupSelect(firstGroup);
   }
 }
 
 function handleGroupSelect(group: Group | null) {
   selectedGroup.value = group || null;
 
-  // 保存选中的分组到 localStorage
   if (group?.id) {
     localStorage.setItem("lastSelectedGroupId", String(group.id));
   } else {
@@ -73,16 +74,12 @@ async function handleGroupRefresh() {
 
 async function handleGroupRefreshAndSelect(targetGroupId: number) {
   await loadGroups();
-  // 临时设置选中的分组 ID 到 localStorage，确保 restoreSelectedGroup 能正确处理
   localStorage.setItem("lastSelectedGroupId", String(targetGroupId));
   restoreSelectedGroup();
 }
 
 function handleGroupDelete(deletedGroup: Group) {
-  // 从分组列表中移除已删除的分组
   groups.value = groups.value.filter(g => g.id !== deletedGroup.id);
-
-  // 如果删除的是当前选中的分组，则移除 localStorage 中的记录并重新选择分组
   if (selectedGroup.value?.id === deletedGroup.id) {
     localStorage.removeItem("lastSelectedGroupId");
     selectedGroup.value = null;
@@ -91,20 +88,15 @@ function handleGroupDelete(deletedGroup: Group) {
 }
 
 async function handleGroupCopySuccess(newGroup: Group) {
-  // 重新加载分组列表以包含新创建的分组
   await loadGroups();
-  // 自动切换到新创建的分组
   localStorage.setItem("lastSelectedGroupId", String(newGroup.id));
   restoreSelectedGroup();
 }
 
 function handleGroupUpdated(updatedGroup: Group) {
-  // 更新当前选中的分组数据
   if (selectedGroup.value && selectedGroup.value.id === updatedGroup.id) {
     selectedGroup.value = updatedGroup;
   }
-
-  // 更新分组列表中的对应分组
   const index = groups.value.findIndex(g => g.id === updatedGroup.id);
   if (index !== -1) {
     groups.value[index] = updatedGroup;
@@ -112,12 +104,10 @@ function handleGroupUpdated(updatedGroup: Group) {
 }
 
 function handleGroupArchived(archivedGroup: Group) {
-  // 更新分组列表中的对应分组
   const index = groups.value.findIndex(g => g.id === archivedGroup.id);
   if (index !== -1) {
     groups.value[index] = archivedGroup;
   }
-  // 如果归档的是当前选中的分组，清空选中
   if (selectedGroup.value?.id === archivedGroup.id) {
     selectedGroup.value = null;
     localStorage.removeItem("lastSelectedGroupId");
@@ -125,10 +115,31 @@ function handleGroupArchived(archivedGroup: Group) {
 }
 
 function handleGroupUnarchived(unarchivedGroup: Group) {
-  // 更新分组列表中的对应分组
   const index = groups.value.findIndex(g => g.id === unarchivedGroup.id);
   if (index !== -1) {
     groups.value[index] = unarchivedGroup;
+  }
+}
+
+async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
+  // 1. 更新本地视图，立即响应
+  groups.value = updatedGroups.sort((a, b) => (a.sort ?? a.id) - (b.sort ?? b.id));
+
+  // 2. 提取需要发送到后端的数据
+  const payload = updatedGroups.map(g => ({
+    id: g.id,
+    sort: g.sort,
+    archived: g.archived,
+  }));
+
+  // 3. 调用 API 更新
+  try {
+    await keysApi.updateGroupsOrder(payload);
+    message.success("分组排序已保存");
+  } catch (error) {
+    message.error("保存分组排序失败，请重试");
+    // 如果失败，重新加载以恢复到之前的状态
+    await loadGroups();
   }
 }
 </script>
@@ -146,12 +157,13 @@ function handleGroupUnarchived(unarchivedGroup: Group) {
         @group-archived="handleGroupArchived"
         @group-unarchived="handleGroupUnarchived"
         @group-updated="handleGroupUpdated"
+        @groups-order-updated="handleGroupsOrderUpdated"
       />
     </div>
 
-    <!-- 右侧主内容区域，占80% -->
+    <!-- 右侧主内容区域 -->
     <div class="main-content">
-      <!-- 分组信息卡片，更紧凑 -->
+      <!-- 分组信息卡片 -->
       <div class="group-info">
         <group-info-card
           :group="selectedGroup"
@@ -162,7 +174,7 @@ function handleGroupUnarchived(unarchivedGroup: Group) {
         />
       </div>
 
-      <!-- 密钥表格区域，占主要空间 -->
+      <!-- 密钥表格区域 -->
       <div class="key-table-section">
         <key-table :selected-group="selectedGroup" />
       </div>
