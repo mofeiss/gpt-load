@@ -71,6 +71,8 @@ type Group struct {
 	HeaderRules        datatypes.JSON       `gorm:"type:json" json:"header_rules"`
 	APIKeys            []APIKey             `gorm:"foreignKey:GroupID" json:"api_keys"`
 	LastValidatedAt    *time.Time           `json:"last_validated_at"`
+	Archived           bool                 `gorm:"default:false" json:"archived"`
+	ArchivedAt         *time.Time           `gorm:"null" json:"archived_at"`
 	CreatedAt          time.Time            `json:"created_at"`
 	UpdatedAt          time.Time            `json:"updated_at"`
 

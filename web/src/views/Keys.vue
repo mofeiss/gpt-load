@@ -110,6 +110,27 @@ function handleGroupUpdated(updatedGroup: Group) {
     groups.value[index] = updatedGroup;
   }
 }
+
+function handleGroupArchived(archivedGroup: Group) {
+  // 更新分组列表中的对应分组
+  const index = groups.value.findIndex(g => g.id === archivedGroup.id);
+  if (index !== -1) {
+    groups.value[index] = archivedGroup;
+  }
+  // 如果归档的是当前选中的分组，清空选中
+  if (selectedGroup.value?.id === archivedGroup.id) {
+    selectedGroup.value = null;
+    localStorage.removeItem("lastSelectedGroupId");
+  }
+}
+
+function handleGroupUnarchived(unarchivedGroup: Group) {
+  // 更新分组列表中的对应分组
+  const index = groups.value.findIndex(g => g.id === unarchivedGroup.id);
+  if (index !== -1) {
+    groups.value[index] = unarchivedGroup;
+  }
+}
 </script>
 
 <template>
@@ -122,6 +143,9 @@ function handleGroupUpdated(updatedGroup: Group) {
         @group-select="handleGroupSelect"
         @refresh="handleGroupRefresh"
         @refresh-and-select="handleGroupRefreshAndSelect"
+        @group-archived="handleGroupArchived"
+        @group-unarchived="handleGroupUnarchived"
+        @group-updated="handleGroupUpdated"
       />
     </div>
 

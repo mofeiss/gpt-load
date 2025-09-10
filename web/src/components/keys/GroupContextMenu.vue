@@ -1,0 +1,198 @@
+<script setup lang="ts">
+import type { Group } from "@/types/models";
+import { keysApi } from "@/api/keys";
+import { NDropdown, useDialog, useMessage } from "naive-ui";
+import { computed, ref } from "vue";
+
+interface Props {
+  group: Group;
+  show: boolean;
+  x: number;
+  y: number;
+}
+
+interface Emits {
+  (e: "update:show", show: boolean): void;
+  (e: "archived", group: Group): void;
+  (e: "unarchived", group: Group): void;
+  (e: "group-updated", group: Group): void;
+  (e: "delete", group: Group): void;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+
+const dialog = useDialog();
+const message = useMessage();
+
+// 加载状态
+const isProcessing = ref(false);
+
+const showDropdown = computed({
+  get: () => props.show,
+  set: value => emit("update:show", value),
+});
+
+const dropdownX = computed(() => props.x);
+const dropdownY = computed(() => props.y);
+
+const menuOptions = computed(() => {
+  const options: Array<{
+    label: string;
+    key: string;
+    icon?: () => string;
+    style?: Record<string, string>;
+    type?: string;
+  }> = [
+    {
+      label: "编辑分组",
+      key: "edit",
+    },
+    {
+      label: "复制分组",
+      key: "copy",
+    },
+    {
+      label: "刷新",
+      key: "refresh",
+    },
+  ];
+
+  if (props.group.archived) {
+    options.push({
+      label: "取消归档",
+      key: "unarchive",
+    });
+  } else {
+    options.push({
+      label: "归档分组",
+      key: "archive",
+    });
+  }
+
+  options.push(
+    {
+      label: "",
+      key: "divider",
+      type: "divider",
+    },
+    {
+      label: "删除分组",
+      key: "delete",
+      style: {
+        color: "red",
+      },
+    }
+  );
+
+  return options;
+});
+
+function closeDropdown() {
+  showDropdown.value = false;
+}
+
+async function handleMenuSelect(key: string) {
+  closeDropdown();
+
+  switch (key) {
+    case "archive":
+      await archiveGroup();
+      break;
+    case "unarchive":
+      await unarchiveGroup();
+      break;
+    case "delete":
+      // 通过事件冒泡到父组件处理删除
+      dialog.warning({
+        title: "确认删除",
+        content: `确定要删除分组 "${props.group.display_name || props.group.name}" 吗？此操作不可撤销。`,
+        positiveText: "确定删除",
+        negativeText: "取消",
+        onPositiveClick: async () => {
+          try {
+            isProcessing.value = true;
+            if (!props.group.id) {
+              throw new Error("分组ID不能为空");
+            }
+            await keysApi.deleteGroup(props.group.id);
+            message.success("分组删除成功");
+            // 通过事件通知父组件
+            emit("delete", props.group);
+          } catch (error) {
+            console.error("删除分组失败:", error);
+            message.error("删除分组失败");
+          } finally {
+            isProcessing.value = false;
+          }
+        },
+      });
+      break;
+    case "refresh":
+      // 刷新事件通过父组件处理
+      emit("group-updated", props.group);
+      break;
+    case "copy":
+    case "edit":
+      // 这些功能暂时不实现，保留原状
+      message.info(`${key === "edit" ? "编辑" : "复制"}功能待实现`);
+      break;
+  }
+}
+
+async function archiveGroup() {
+  if (isProcessing.value) {
+    return;
+  }
+
+  try {
+    isProcessing.value = true;
+    if (!props.group.id) {
+      throw new Error("分组ID不能为空");
+    }
+    const updatedGroup = await keysApi.archiveGroup(props.group.id);
+    message.success("分组归档成功");
+    emit("archived", updatedGroup);
+  } catch (error) {
+    console.error("归档分组失败:", error);
+    message.error("归档分组失败");
+  } finally {
+    isProcessing.value = false;
+  }
+}
+
+async function unarchiveGroup() {
+  if (isProcessing.value) {
+    return;
+  }
+
+  try {
+    isProcessing.value = true;
+    if (!props.group.id) {
+      throw new Error("分组ID不能为空");
+    }
+    const updatedGroup = await keysApi.unarchiveGroup(props.group.id);
+    message.success("分组取消归档成功");
+    emit("unarchived", updatedGroup);
+  } catch (error) {
+    console.error("取消归档分组失败:", error);
+    message.error("取消归档分组失败");
+  } finally {
+    isProcessing.value = false;
+  }
+}
+</script>
+
+<template>
+  <n-dropdown
+    :options="menuOptions"
+    :show="showDropdown"
+    :x="dropdownX"
+    :y="dropdownY"
+    placement="bottom-start"
+    @clickoutside="closeDropdown"
+    @select="handleMenuSelect"
+  />
+</template>
+
+<style scoped></style>

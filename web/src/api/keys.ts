@@ -27,6 +27,18 @@ export const keysApi = {
     return res.data;
   },
 
+  // 归档分组
+  async archiveGroup(groupId: number): Promise<Group> {
+    const res = await http.post(`/groups/${groupId}/archive`);
+    return res.data;
+  },
+
+  // 取消归档分组
+  async unarchiveGroup(groupId: number): Promise<Group> {
+    const res = await http.post(`/groups/${groupId}/unarchive`);
+    return res.data;
+  },
+
   // 删除分组
   deleteGroup(groupId: number): Promise<void> {
     return http.delete(`/groups/${groupId}`);

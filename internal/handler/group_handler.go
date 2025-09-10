@@ -494,6 +494,8 @@ type GroupResponse struct {
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          string              `json:"proxy_keys"`
 	LastValidatedAt    *time.Time          `json:"last_validated_at"`
+	Archived           bool                `json:"archived"`
+	ArchivedAt         *time.Time          `json:"archived_at"`
 	CreatedAt          time.Time           `json:"created_at"`
 	UpdatedAt          time.Time           `json:"updated_at"`
 }
@@ -535,6 +537,8 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 		HeaderRules:        headerRules,
 		ProxyKeys:          group.ProxyKeys,
 		LastValidatedAt:    group.LastValidatedAt,
+		Archived:           group.Archived,
+		ArchivedAt:         group.ArchivedAt,
 		CreatedAt:          group.CreatedAt,
 		UpdatedAt:          group.UpdatedAt,
 	}
@@ -1034,4 +1038,65 @@ func (s *Server) List(c *gin.Context) {
 		return
 	}
 	response.Success(c, groups)
+}
+
+// ArchiveGroup handles archiving a group.
+func (s *Server) ArchiveGroup(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrBadRequest, "Invalid group ID format"))
+		return
+	}
+
+	var group models.Group
+	if err := s.DB.First(&group, id).Error; err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	// Update group archived status
+	now := time.Now()
+	group.Archived = true
+	group.ArchivedAt = &now
+
+	if err := s.DB.Save(&group).Error; err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	if err := s.GroupManager.Invalidate(); err != nil {
+		logrus.WithContext(c.Request.Context()).WithError(err).Error("failed to invalidate group cache")
+	}
+
+	response.Success(c, s.newGroupResponse(&group))
+}
+
+// UnarchiveGroup handles unarchiving a group.
+func (s *Server) UnarchiveGroup(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrBadRequest, "Invalid group ID format"))
+		return
+	}
+
+	var group models.Group
+	if err := s.DB.First(&group, id).Error; err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	// Update group archived status
+	group.Archived = false
+	group.ArchivedAt = nil
+
+	if err := s.DB.Save(&group).Error; err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	if err := s.GroupManager.Invalidate(); err != nil {
+		logrus.WithContext(c.Request.Context()).WithError(err).Error("failed to invalidate group cache")
+	}
+
+	response.Success(c, s.newGroupResponse(&group))
 }

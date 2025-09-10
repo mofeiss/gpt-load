@@ -55,6 +55,8 @@ export interface Group {
   proxy_keys: string;
   created_at?: string;
   updated_at?: string;
+  archived?: boolean; // 归档状态
+  archived_at?: string; // 归档时间
 }
 
 export interface GroupConfigOption {

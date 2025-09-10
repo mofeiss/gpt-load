@@ -2,9 +2,10 @@
 import type { Group } from "@/types/models";
 import { getGroupDisplayName } from "@/utils/display";
 import { Add, Search } from "@vicons/ionicons5";
-import { NButton, NCard, NEmpty, NInput, NSpin, NTag } from "naive-ui";
-import { computed, ref } from "vue";
+import { NButton, NCard, NEmpty, NInput, NSpin, NTag, NCollapse, NCollapseItem } from "naive-ui";
+import { computed, ref, watch } from "vue";
 import GroupFormModal from "./GroupFormModal.vue";
+import GroupContextMenu from "./GroupContextMenu.vue";
 
 interface Props {
   groups: Group[];
@@ -16,6 +17,9 @@ interface Emits {
   (e: "group-select", group: Group): void;
   (e: "refresh"): void;
   (e: "refresh-and-select", groupId: number): void;
+  (e: "group-archived", group: Group): void;
+  (e: "group-unarchived", group: Group): void;
+  (e: "group-updated", group: Group): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -26,6 +30,33 @@ const emit = defineEmits<Emits>();
 
 const searchText = ref("");
 const showGroupModal = ref(false);
+
+// 右键菜单相关状态
+const contextMenuData = ref<{
+  show: boolean;
+  x: number;
+  y: number;
+  group: Group | null;
+}>({
+  show: false,
+  x: 0,
+  y: 0,
+  group: null,
+});
+
+// 归档列表展开状态
+const archivedExpanded = ref(false);
+const archivedExpandedArray = ref<string[]>([]);
+
+// 同步展开状态
+watch(archivedExpanded, newValue => {
+  archivedExpandedArray.value = newValue ? ["archived"] : [];
+});
+
+// 监听数组变化来更新展开状态
+watch(archivedExpandedArray, newValue => {
+  archivedExpanded.value = newValue.includes("archived");
+});
 
 // 过滤后的分组列表
 const filteredGroups = computed(() => {
@@ -40,8 +71,39 @@ const filteredGroups = computed(() => {
   );
 });
 
+// 常驻分组（未归档）
+const activeGroups = computed(() => {
+  return filteredGroups.value.filter(group => !group.archived);
+});
+
+// 归档分组
+const archivedGroups = computed(() => {
+  return filteredGroups.value.filter(group => group.archived);
+});
+
 function handleGroupClick(group: Group) {
   emit("group-select", group);
+}
+
+// 右键菜单处理
+function handleContextMenu(event: MouseEvent, group: Group) {
+  event.preventDefault();
+  contextMenuData.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY,
+    group,
+  };
+}
+
+// 归档分组
+async function handleArchiveGroup(group: Group) {
+  emit("group-archived", group);
+}
+
+// 取消归档分组
+async function handleUnarchiveGroup(group: Group) {
+  emit("group-unarchived", group);
 }
 
 // 获取渠道类型的标签颜色
@@ -86,16 +148,18 @@ function handleGroupCreated(group: Group) {
       <!-- 分组列表 -->
       <div class="groups-section">
         <n-spin :show="loading" size="small">
-          <div v-if="filteredGroups.length === 0 && !loading" class="empty-container">
+          <!-- 常驻分组 -->
+          <div v-if="activeGroups.length === 0 && !loading" class="empty-container">
             <n-empty size="small" :description="searchText ? '未找到匹配的分组' : '暂无分组'" />
           </div>
           <div v-else class="groups-list">
             <div
-              v-for="group in filteredGroups"
+              v-for="group in activeGroups"
               :key="group.id"
               class="group-item"
               :class="{ active: selectedGroup?.id === group.id }"
               @click="handleGroupClick(group)"
+              @contextmenu="handleContextMenu($event, group)"
             >
               <div class="group-icon">
                 <span v-if="group.channel_type === 'openai'">🤖</span>
@@ -114,6 +178,45 @@ function handleGroupCreated(group: Group) {
               </div>
             </div>
           </div>
+
+          <!-- 归档分组 -->
+          <div v-if="archivedGroups.length > 0" class="archived-section">
+            <n-collapse v-model:expanded-names="archivedExpandedArray">
+              <n-collapse-item name="archived" class="archived-collapse">
+                <template #header>
+                  <div class="archived-header">
+                    <span class="archived-title">归档分组 ({{ archivedGroups.length }})</span>
+                  </div>
+                </template>
+
+                <div class="archived-list">
+                  <div
+                    v-for="group in archivedGroups"
+                    :key="group.id"
+                    class="group-item archived-item"
+                    :class="{ active: selectedGroup?.id === group.id }"
+                    @click="handleGroupClick(group)"
+                    @contextmenu="handleContextMenu($event, group)"
+                  >
+                    <div class="group-icon archived-icon">
+                      <span v-if="group.channel_type === 'openai'">🤖</span>
+                      <span v-else-if="group.channel_type === 'gemini'">💎</span>
+                      <span v-else-if="group.channel_type === 'anthropic'">🧠</span>
+                      <span v-else>🔧</span>
+                    </div>
+                    <div class="group-content archived-content">
+                      <div class="group-name">{{ getGroupDisplayName(group) }}</div>
+                      <div class="group-meta">
+                        <n-tag size="tiny" :type="getChannelTagType(group.channel_type)">
+                          {{ group.channel_type }}
+                        </n-tag>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </n-collapse-item>
+            </n-collapse>
+          </div>
         </n-spin>
       </div>
 
@@ -127,6 +230,20 @@ function handleGroupCreated(group: Group) {
         </n-button>
       </div>
     </n-card>
+
+    <!-- 右键菜单 -->
+    <group-context-menu
+      v-if="contextMenuData.group"
+      v-model:show="contextMenuData.show"
+      :x="contextMenuData.x"
+      :y="contextMenuData.y"
+      :group="contextMenuData.group"
+      @archived="handleArchiveGroup"
+      @unarchived="handleUnarchiveGroup"
+      @group-updated="group => emit('group-updated', group)"
+      @delete="group => emit('group-updated', group)"
+    />
+
     <group-form-modal v-model:show="showGroupModal" @success="handleGroupCreated" />
   </div>
 </template>
@@ -271,5 +388,98 @@ function handleGroupCreated(group: Group) {
 
 .groups-list::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
+}
+
+/* 归档分组样式 */
+.archived-section {
+  margin-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 12px;
+}
+
+.archived-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.archived-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.archived-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.archived-item {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.archived-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.archived-content {
+  gap: 2px;
+}
+
+.archived-item .group-name {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.archived-item .group-meta {
+  font-size: 9px;
+}
+
+.archived-item:hover {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.archived-item.active {
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.archived-item.active .archived-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+:deep(.archived-collapse .n-collapse-item__header) {
+  padding: 8px 0;
+}
+
+:deep(.archived-collapse .n-collapse-item__content-inner) {
+  padding-top: 8px;
+}
+
+/* 归档列表滚动条 */
+.archived-list::-webkit-scrollbar {
+  width: 3px;
+}
+
+.archived-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.archived-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+}
+
+.archived-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
 }
 </style>
