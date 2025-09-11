@@ -142,7 +142,7 @@ const validationEndpointPlaceholder = computed(() => {
     case "openai":
       return "/v1/chat/completions";
     case "anthropic":
-      return "/v1/messages";
+      return "/v1/messages?beta=true";
     case "gemini":
       return ""; // Gemini 不显示此字段
     default:
@@ -697,7 +697,7 @@ async function handleSubmit() {
                       <br />
                       • OpenAI: /v1/chat/completions
                       <br />
-                      • Anthropic: /v1/messages
+                      • Anthropic: /v1/messages?beta=true
                       <br />
                       如需使用非标准路径，请在此填写完整的API路径
                     </div>

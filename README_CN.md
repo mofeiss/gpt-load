@@ -415,7 +415,7 @@ curl -X POST http://localhost:3001/proxy/gemini/v1beta/models/gemini-2.5-pro:gen
 **原始调用方式：**
 
 ```bash
-curl -X POST https://api.anthropic.com/v1/messages \
+curl -X POST https://api.anthropic.com/v1/messages?beta=true \
   -H "x-api-key: sk-ant-api03-your-anthropic-key" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -425,7 +425,7 @@ curl -X POST https://api.anthropic.com/v1/messages \
 **代理调用方式：**
 
 ```bash
-curl -X POST http://localhost:3001/proxy/anthropic/v1/messages \
+curl -X POST http://localhost:3001/proxy/anthropic/v1/messages?beta=true \
   -H "x-api-key: your-proxy-key" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -455,7 +455,7 @@ curl -X POST http://localhost:3001/proxy/anthropic/v1/messages \
 
 **Anthropic 格式：**
 
-- `/v1/messages` - 消息对话
+- `/v1/messages?beta=true` - 消息对话
 - `/v1/models` - 模型列表（如果可用）
 - 以及其他所有 Anthropic 原生接口
 

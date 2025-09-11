@@ -417,7 +417,7 @@ Assuming a group named `anthropic` was created:
 **Original invocation:**
 
 ```bash
-curl -X POST https://api.anthropic.com/v1/messages \
+curl -X POST https://api.anthropic.com/v1/messages?beta=true \
   -H "x-api-key: sk-ant-api03-your-anthropic-key" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -427,7 +427,7 @@ curl -X POST https://api.anthropic.com/v1/messages \
 **Proxy invocation:**
 
 ```bash
-curl -X POST http://localhost:3001/proxy/anthropic/v1/messages \
+curl -X POST http://localhost:3001/proxy/anthropic/v1/messages?beta=true \
   -H "x-api-key: your-proxy-key" \
   -H "anthropic-version: 2023-06-01" \
   -H "Content-Type: application/json" \
@@ -457,7 +457,7 @@ curl -X POST http://localhost:3001/proxy/anthropic/v1/messages \
 
 **Anthropic Format:**
 
-- `/v1/messages` - Message conversations
+- `/v1/messages?beta=true` - Message conversations
 - `/v1/models` - Model list (if available)
 - And all other Anthropic native interfaces
 

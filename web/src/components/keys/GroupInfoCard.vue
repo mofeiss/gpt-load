@@ -66,7 +66,7 @@ const getChannelEndpoint = (channelType: string) => {
     case "openai":
       return "/v1/chat/completions";
     case "anthropic":
-      return "/v1/messages";
+      return "/v1/messages?beta=true";
     case "gemini":
       return "/v1beta/models/";
     default:
