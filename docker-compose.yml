@@ -27,7 +27,8 @@ services:
       - LOG_LEVEL=info
       - LOG_FORMAT=text
       - LOG_ENABLE_FILE=true
-      - LOG_FILE_PATH=/Users/ofeiss/docker/gpt-load/data/logs/app.log
+      - LOG_FILE_PATH=/app/data/logs/app.log
+      - DATABASE_DSN=/app/data/gpt-load.db
     extra_hosts:
       - host.docker.internal:host-gateway
     restart: always
