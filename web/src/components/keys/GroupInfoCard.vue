@@ -80,7 +80,7 @@ const fullUpstreamUrl = computed(() => {
     return "";
   }
   const upstream = props.group.upstreams[0];
-  const endpoint = getChannelEndpoint(props.group.channel_type);
+  const endpoint = props.group.validation_endpoint || getChannelEndpoint(props.group.channel_type);
   return `${upstream.url}${endpoint}`;
 });
 

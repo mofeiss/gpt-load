@@ -35,6 +35,13 @@ type BaseChannel struct {
 	channelType     string
 	groupUpstreams  datatypes.JSON
 	effectiveConfig *types.SystemSettings
+
+	forceHTTP11 bool
+}
+
+// ForceHTTP11 indicates whether the channel should force HTTP/1.1 for requests.
+func (b *BaseChannel) ForceHTTP11() bool {
+	return b.forceHTTP11
 }
 
 // getUpstreamURL selects an upstream URL using a smooth weighted round-robin algorithm.

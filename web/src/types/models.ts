@@ -57,6 +57,7 @@ export interface Group {
   updated_at?: string;
   archived?: boolean; // 归档状态
   archived_at?: string; // 归档时间
+  force_http11?: boolean | null; // 是否强制使用 HTTP/1.1
 }
 
 export interface GroupConfigOption {

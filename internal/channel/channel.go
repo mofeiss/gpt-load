@@ -34,4 +34,7 @@ type ChannelProxy interface {
 
 	// ValidateKey checks if the given API key is valid.
 	ValidateKey(ctx context.Context, apiKey *models.APIKey, group *models.Group) (bool, error)
+
+	// ForceHTTP11 indicates whether the channel should force HTTP/1.1 for requests.
+	ForceHTTP11() bool
 }

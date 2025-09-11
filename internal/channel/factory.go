@@ -121,9 +121,15 @@ func (f *Factory) newBaseChannel(name string, group *models.Group) (*BaseChannel
 		DisableCompression:    false,
 		WriteBufferSize:       32 * 1024,
 		ReadBufferSize:        32 * 1024,
-		ForceAttemptHTTP2:     true,
 		TLSHandshakeTimeout:   15 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
+	}
+
+	// Determine ForceAttemptHTTP2 based on group.ForceHTTP11
+	if group.ForceHTTP11 != nil && *group.ForceHTTP11 {
+		clientConfig.ForceAttemptHTTP2 = false
+	} else {
+		clientConfig.ForceAttemptHTTP2 = true
 	}
 
 	// Create a dedicated configuration for streaming requests.
@@ -150,5 +156,6 @@ func (f *Factory) newBaseChannel(name string, group *models.Group) (*BaseChannel
 		channelType:        group.ChannelType,
 		groupUpstreams:     group.Upstreams,
 		effectiveConfig:    &group.EffectiveConfig,
+		forceHTTP11:        group.ForceHTTP11 != nil && *group.ForceHTTP11,
 	}, nil
 }

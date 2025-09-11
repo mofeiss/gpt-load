@@ -169,6 +169,7 @@ type GroupCreateRequest struct {
 	Config             map[string]any      `json:"config"`
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          string              `json:"proxy_keys"`
+	ForceHTTP11        *bool               `json:"force_http11,omitempty"`
 }
 
 // CreateGroup handles the creation of a new group.
@@ -272,6 +273,7 @@ func (s *Server) CreateGroup(c *gin.Context) {
 		Config:             cleanedConfig,
 		HeaderRules:        headerRulesJSON,
 		ProxyKeys:          strings.TrimSpace(req.ProxyKeys),
+		ForceHTTP11:        req.ForceHTTP11,
 	}
 
 	if err := s.DB.Create(&group).Error; err != nil {
@@ -316,6 +318,7 @@ type GroupUpdateRequest struct {
 	Config             map[string]any      `json:"config"`
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          *string             `json:"proxy_keys,omitempty"`
+	ForceHTTP11        *bool               `json:"force_http11,omitempty"`
 }
 
 // UpdateGroup handles updating an existing group.
@@ -416,6 +419,10 @@ func (s *Server) UpdateGroup(c *gin.Context) {
 
 	if req.ProxyKeys != nil {
 		group.ProxyKeys = strings.TrimSpace(*req.ProxyKeys)
+	}
+
+	if req.ForceHTTP11 != nil {
+		group.ForceHTTP11 = req.ForceHTTP11
 	}
 
 	// Handle header rules update
@@ -552,6 +559,7 @@ type GroupResponse struct {
 	Config             datatypes.JSONMap   `json:"config"`
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          string              `json:"proxy_keys"`
+	ForceHTTP11        *bool               `json:"force_http11,omitempty"`
 	LastValidatedAt    *time.Time          `json:"last_validated_at"`
 	Archived           bool                `json:"archived"`
 	ArchivedAt         *time.Time          `json:"archived_at"`
@@ -595,6 +603,7 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 		Config:             group.Config,
 		HeaderRules:        headerRules,
 		ProxyKeys:          group.ProxyKeys,
+		ForceHTTP11:        group.ForceHTTP11,
 		LastValidatedAt:    group.LastValidatedAt,
 		Archived:           group.Archived,
 		ArchivedAt:         group.ArchivedAt,

@@ -72,6 +72,7 @@ interface GroupFormData {
   header_rules: HeaderRuleItem[];
   proxy_keys: string;
   blacklist_threshold: number | null;
+  force_http11?: boolean;
 }
 
 // 表单数据
@@ -289,6 +290,7 @@ function resetForm() {
     header_rules: [],
     proxy_keys: "",
     blacklist_threshold: null,
+    force_http11: false,
   });
 
   // 重置用户修改状态追踪
@@ -340,6 +342,7 @@ function loadGroupData() {
     })),
     proxy_keys: props.group.proxy_keys || "",
     blacklist_threshold: blacklistThreshold,
+    force_http11: props.group.force_http11 ?? false,
   });
 }
 
@@ -515,6 +518,7 @@ async function handleSubmit() {
           action: rule.action,
         })),
       proxy_keys: formData.proxy_keys,
+      force_http11: formData.force_http11,
     };
 
     let res: Group;
@@ -758,6 +762,22 @@ async function handleSubmit() {
               placeholder="多个密钥请用英文逗号 , 分隔"
               size="medium"
             />
+          </n-form-item>
+
+          <!-- 强制HTTP/1.1 -->
+          <n-form-item label="强制HTTP/1.1" path="force_http11">
+            <template #label>
+              <div class="form-label-with-tooltip">
+                强制HTTP/1.1
+                <n-tooltip trigger="hover" placement="top">
+                  <template #trigger>
+                    <n-icon :component="HelpCircleOutline" class="help-icon" />
+                  </template>
+                  如果上游服务不支持HTTP/2，可以尝试开启此选项，强制使用HTTP/1.1进行请求。
+                </n-tooltip>
+              </div>
+            </template>
+            <n-switch v-model:value="formData.force_http11" />
           </n-form-item>
 
           <!-- 描述独占一行 -->
