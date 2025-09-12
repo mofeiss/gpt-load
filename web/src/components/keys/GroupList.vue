@@ -10,7 +10,7 @@ import { VueDraggableNext } from "vue-draggable-next";
 import { log, setupGlobalLogExporter } from "@/utils/debug-logger";
 
 // --- START: Persistence Logic ---
-const ARCHIVED_EXPANDED_STORAGE_KEY = 'gpt-load-archived-expanded';
+const ARCHIVED_EXPANDED_STORAGE_KEY = "gpt-load-archived-expanded";
 // --- END: Persistence Logic ---
 
 interface Props {

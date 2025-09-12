@@ -646,7 +646,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
     <n-modal
       v-model:show="showDetailModal"
       preset="card"
-      style="width: min(90vw, 1200px); max-height: 90vh; overflow-y: auto;"
+      style="width: min(90vw, 1200px); max-height: 90vh; overflow-y: auto"
       title="请求详情"
       :show-close="false"
       :mask-closable="true"
