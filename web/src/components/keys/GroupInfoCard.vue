@@ -5,7 +5,17 @@ import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
 import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
-import { NButton, NCard, NIcon, NInput, NTooltip, useDialog, useMessage } from "naive-ui";
+import {
+  NButton,
+  NCard,
+  NIcon,
+  NInput,
+  NTabs,
+  NTabPane,
+  NTooltip,
+  useDialog,
+  useMessage,
+} from "naive-ui";
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupCopyModal from "./GroupCopyModal.vue";
@@ -37,6 +47,7 @@ const confirmInput = ref("");
 const configOptions = ref<GroupConfigOption[]>([]);
 const showProxyKeys = ref(false);
 const descriptionInput = ref<HTMLInputElement | null>(null);
+const activeTab = ref("description");
 
 // 渠道切换相关状态
 const channelSwitchLoading = ref(false);
@@ -422,6 +433,8 @@ function resetPage() {
   // 重置内联编辑状态
   isEditingDescription.value = false;
   editingDescription.value = "";
+  // 重置标签页到描述卡片
+  activeTab.value = "description";
 }
 </script>
 
@@ -638,193 +651,200 @@ function resetPage() {
       </div>
       <n-divider style="margin: 0" />
 
-      <!-- 分组描述区域 -->
-      <div class="group-description-section">
-        <!-- 显示模式：点击可编辑 -->
-        <div
-          class="description-content"
-          v-if="!isEditingDescription && group?.description"
-          @click="startEditingDescription"
-          :class="{ 'description-editable': !isEditingDescription }"
-        >
-          {{ group.description }}
-        </div>
-
-        <!-- 显示模式：没有描述时的占位符 -->
-        <div
-          class="description-content description-placeholder"
-          v-if="!isEditingDescription && !group?.description"
-          @click="startEditingDescription"
-          :class="{ 'description-editable': !isEditingDescription }"
-        >
-          点击添加描述...
-        </div>
-
-        <!-- 编辑模式 -->
-        <div class="description-edit-container" v-if="isEditingDescription">
-          <n-input
-            v-model:value="editingDescription"
-            type="textarea"
-            :rows="2"
-            :autosize="{ minRows: 2, maxRows: 5 }"
-            placeholder="请输入分组描述..."
-            :loading="descriptionLoading"
-            @blur="saveDescription"
-            @keyup.enter.ctrl="saveDescription"
-            @keyup.esc="cancelEditingDescription"
-            ref="descriptionInput"
-          />
-        </div>
-      </div>
-
-      <n-divider style="margin: 12px 0" />
-
-      <!-- 详细信息区 -->
-      <div class="details-section">
-        <h3 class="details-title">详细信息</h3>
-        <div class="details-content">
-          <div class="detail-section">
-            <h4 class="section-title">基础信息</h4>
-            <n-form label-placement="left" label-width="85px" label-align="right">
-              <n-grid cols="1 m:2">
-                <n-grid-item>
-                  <n-form-item label="分组名称：">
-                    {{ group?.name }}
-                  </n-form-item>
-                </n-grid-item>
-                <n-grid-item>
-                  <n-form-item label="显示名称：">
-                    {{ group?.display_name }}
-                  </n-form-item>
-                </n-grid-item>
-                <n-grid-item>
-                  <n-form-item label="渠道类型：">
-                    {{ group?.channel_type }}
-                  </n-form-item>
-                </n-grid-item>
-                <n-grid-item>
-                  <n-form-item label="排序：">
-                    {{ group?.sort }}
-                  </n-form-item>
-                </n-grid-item>
-                <n-grid-item>
-                  <n-form-item label="测试模型：">
-                    {{ group?.test_model }}
-                  </n-form-item>
-                </n-grid-item>
-                <n-grid-item v-if="group?.channel_type !== 'gemini'">
-                  <n-form-item label="测试路径：">
-                    {{ group?.validation_endpoint }}
-                  </n-form-item>
-                </n-grid-item>
-                <n-grid-item :span="2">
-                  <n-form-item label="代理密钥：">
-                    <div class="proxy-keys-content">
-                      <span class="key-text">{{ proxyKeysDisplay }}</span>
-                      <n-button-group size="small" class="key-actions" v-if="group?.proxy_keys">
-                        <n-tooltip trigger="hover">
-                          <template #trigger>
-                            <n-button quaternary circle @click="showProxyKeys = !showProxyKeys">
-                              <template #icon>
-                                <n-icon :component="showProxyKeys ? EyeOffOutline : EyeOutline" />
-                              </template>
-                            </n-button>
-                          </template>
-                          {{ showProxyKeys ? "隐藏密钥" : "显示密钥" }}
-                        </n-tooltip>
-                        <n-tooltip trigger="hover">
-                          <template #trigger>
-                            <n-button quaternary circle @click="copyProxyKeys">
-                              <template #icon>
-                                <n-icon :component="CopyOutline" />
-                              </template>
-                            </n-button>
-                          </template>
-                          复制密钥
-                        </n-tooltip>
-                      </n-button-group>
-                    </div>
-                  </n-form-item>
-                </n-grid-item>
-              </n-grid>
-            </n-form>
-          </div>
-
-          <div class="detail-section">
-            <h4 class="section-title">上游地址</h4>
-            <n-form label-placement="left" label-width="100px">
-              <n-form-item
-                v-for="(upstream, index) in group?.upstreams ?? []"
-                :key="index"
-                class="upstream-item"
-                :label="`上游 ${index + 1}:`"
+      <!-- 标签页区域 -->
+      <div class="tab-section">
+        <n-tabs v-model:value="activeTab" type="line" animated>
+          <!-- 描述卡片标签页 (索引 0) -->
+          <n-tab-pane name="description" tab="描述卡片">
+            <!-- 分组描述区域 -->
+            <div class="group-description-section">
+              <!-- 显示模式：点击可编辑 -->
+              <div
+                class="description-content"
+                v-if="!isEditingDescription && group?.description"
+                @click="startEditingDescription"
+                :class="{ 'description-editable': !isEditingDescription }"
               >
-                <span class="upstream-weight">
-                  <n-tag size="small" type="info">权重: {{ upstream.weight }}</n-tag>
-                </span>
-                <n-input class="upstream-url" :value="upstream.url" readonly size="small" />
-              </n-form-item>
-            </n-form>
-          </div>
+                {{ group.description }}
+              </div>
 
-          <div class="detail-section" v-if="hasAdvancedConfig">
-            <h4 class="section-title">高级配置</h4>
-            <n-form label-placement="left">
-              <n-form-item v-for="(value, key) in group?.config || {}" :key="key">
-                <template #label>
-                  <n-tooltip trigger="hover" :delay="300" placement="top">
-                    <template #trigger>
-                      <span class="config-label">
-                        {{ getConfigDisplayName(key) }}:
-                        <n-icon size="14" class="config-help-icon">
-                          <svg viewBox="0 0 24 24">
-                            <path
-                              fill="currentColor"
-                              d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,17A1.5,1.5 0 0,1 10.5,15.5A1.5,1.5 0 0,1 12,14A1.5,1.5 0 0,1 13.5,15.5A1.5,1.5 0 0,1 12,17M12,10.5C10.07,10.5 8.5,8.93 8.5,7A3.5,3.5 0 0,1 12,3.5A3.5,3.5 0 0,1 15.5,7C15.5,8.93 13.93,10.5 12,10.5Z"
-                            />
-                          </svg>
-                        </n-icon>
-                      </span>
-                    </template>
-                    <div class="config-tooltip">
-                      <div class="tooltip-title">{{ getConfigDisplayName(key) }}</div>
-                      <div class="tooltip-description">{{ getConfigDescription(key) }}</div>
-                      <div class="tooltip-key">配置键: {{ key }}</div>
-                    </div>
-                  </n-tooltip>
-                </template>
-                {{ value || "-" }}
-              </n-form-item>
-              <n-form-item
-                v-if="group?.header_rules && group.header_rules.length > 0"
-                label="自定义请求头:"
-                :span="2"
+              <!-- 显示模式：没有描述时的占位符 -->
+              <div
+                class="description-content description-placeholder"
+                v-if="!isEditingDescription && !group?.description"
+                @click="startEditingDescription"
+                :class="{ 'description-editable': !isEditingDescription }"
               >
-                <div class="header-rules-display">
-                  <div
-                    v-for="(rule, index) in group.header_rules"
+                点击添加描述...
+              </div>
+
+              <!-- 编辑模式 -->
+              <div class="description-edit-container" v-if="isEditingDescription">
+                <n-input
+                  v-model:value="editingDescription"
+                  type="textarea"
+                  :rows="2"
+                  :autosize="{ minRows: 2, maxRows: 5 }"
+                  placeholder="请输入分组描述..."
+                  :loading="descriptionLoading"
+                  @blur="saveDescription"
+                  @keyup.enter.ctrl="saveDescription"
+                  @keyup.esc="cancelEditingDescription"
+                  ref="descriptionInput"
+                />
+              </div>
+            </div>
+          </n-tab-pane>
+
+          <!-- 详细信息标签页 (索引 1) -->
+          <n-tab-pane name="details" tab="详细信息">
+            <div class="details-content">
+              <div class="detail-section">
+                <h4 class="section-title">基础信息</h4>
+                <n-form label-placement="left" label-width="85px" label-align="right">
+                  <n-grid cols="1 m:2">
+                    <n-grid-item>
+                      <n-form-item label="分组名称：">
+                        {{ group?.name }}
+                      </n-form-item>
+                    </n-grid-item>
+                    <n-grid-item>
+                      <n-form-item label="显示名称：">
+                        {{ group?.display_name }}
+                      </n-form-item>
+                    </n-grid-item>
+                    <n-grid-item>
+                      <n-form-item label="渠道类型：">
+                        {{ group?.channel_type }}
+                      </n-form-item>
+                    </n-grid-item>
+                    <n-grid-item>
+                      <n-form-item label="排序：">
+                        {{ group?.sort }}
+                      </n-form-item>
+                    </n-grid-item>
+                    <n-grid-item>
+                      <n-form-item label="测试模型：">
+                        {{ group?.test_model }}
+                      </n-form-item>
+                    </n-grid-item>
+                    <n-grid-item v-if="group?.channel_type !== 'gemini'">
+                      <n-form-item label="测试路径：">
+                        {{ group?.validation_endpoint }}
+                      </n-form-item>
+                    </n-grid-item>
+                    <n-grid-item :span="2">
+                      <n-form-item label="代理密钥：">
+                        <div class="proxy-keys-content">
+                          <span class="key-text">{{ proxyKeysDisplay }}</span>
+                          <n-button-group size="small" class="key-actions" v-if="group?.proxy_keys">
+                            <n-tooltip trigger="hover">
+                              <template #trigger>
+                                <n-button quaternary circle @click="showProxyKeys = !showProxyKeys">
+                                  <template #icon>
+                                    <n-icon
+                                      :component="showProxyKeys ? EyeOffOutline : EyeOutline"
+                                    />
+                                  </template>
+                                </n-button>
+                              </template>
+                              {{ showProxyKeys ? "隐藏密钥" : "显示密钥" }}
+                            </n-tooltip>
+                            <n-tooltip trigger="hover">
+                              <template #trigger>
+                                <n-button quaternary circle @click="copyProxyKeys">
+                                  <template #icon>
+                                    <n-icon :component="CopyOutline" />
+                                  </template>
+                                </n-button>
+                              </template>
+                              复制密钥
+                            </n-tooltip>
+                          </n-button-group>
+                        </div>
+                      </n-form-item>
+                    </n-grid-item>
+                  </n-grid>
+                </n-form>
+              </div>
+
+              <div class="detail-section">
+                <h4 class="section-title">上游地址</h4>
+                <n-form label-placement="left" label-width="100px">
+                  <n-form-item
+                    v-for="(upstream, index) in group?.upstreams ?? []"
                     :key="index"
-                    class="header-rule-item"
+                    class="upstream-item"
+                    :label="`上游 ${index + 1}:`"
                   >
-                    <n-tag :type="rule.action === 'remove' ? 'error' : 'default'" size="small">
-                      {{ rule.key }}
-                    </n-tag>
-                    <span class="header-separator">:</span>
-                    <span class="header-value" v-if="rule.action === 'set'">
-                      {{ rule.value || "(空值)" }}
+                    <span class="upstream-weight">
+                      <n-tag size="small" type="info">权重: {{ upstream.weight }}</n-tag>
                     </span>
-                    <span class="header-removed" v-else>删除</span>
-                  </div>
-                </div>
-              </n-form-item>
-              <n-form-item v-if="group?.param_overrides" label="参数覆盖:" :span="2">
-                <pre class="config-json">{{
-                  JSON.stringify(group?.param_overrides || "", null, 2)
-                }}</pre>
-              </n-form-item>
-            </n-form>
-          </div>
-        </div>
+                    <n-input class="upstream-url" :value="upstream.url" readonly size="small" />
+                  </n-form-item>
+                </n-form>
+              </div>
+
+              <div class="detail-section" v-if="hasAdvancedConfig">
+                <h4 class="section-title">高级配置</h4>
+                <n-form label-placement="left">
+                  <n-form-item v-for="(value, key) in group?.config || {}" :key="key">
+                    <template #label>
+                      <n-tooltip trigger="hover" :delay="300" placement="top">
+                        <template #trigger>
+                          <span class="config-label">
+                            {{ getConfigDisplayName(key) }}:
+                            <n-icon size="14" class="config-help-icon">
+                              <svg viewBox="0 0 24 24">
+                                <path
+                                  fill="currentColor"
+                                  d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,17A1.5,1.5 0 0,1 10.5,15.5A1.5,1.5 0 0,1 12,14A1.5,1.5 0 0,1 13.5,15.5A1.5,1.5 0 0,1 12,17M12,10.5C10.07,10.5 8.5,8.93 8.5,7A3.5,3.5 0 0,1 12,3.5A3.5,3.5 0 0,1 15.5,7C15.5,8.93 13.93,10.5 12,10.5Z"
+                                />
+                              </svg>
+                            </n-icon>
+                          </span>
+                        </template>
+                        <div class="config-tooltip">
+                          <div class="tooltip-title">{{ getConfigDisplayName(key) }}</div>
+                          <div class="tooltip-description">{{ getConfigDescription(key) }}</div>
+                          <div class="tooltip-key">配置键: {{ key }}</div>
+                        </div>
+                      </n-tooltip>
+                    </template>
+                    {{ value || "-" }}
+                  </n-form-item>
+                  <n-form-item
+                    v-if="group?.header_rules && group.header_rules.length > 0"
+                    label="自定义请求头:"
+                    :span="2"
+                  >
+                    <div class="header-rules-display">
+                      <div
+                        v-for="(rule, index) in group.header_rules"
+                        :key="index"
+                        class="header-rule-item"
+                      >
+                        <n-tag :type="rule.action === 'remove' ? 'error' : 'default'" size="small">
+                          {{ rule.key }}
+                        </n-tag>
+                        <span class="header-separator">:</span>
+                        <span class="header-value" v-if="rule.action === 'set'">
+                          {{ rule.value || "(空值)" }}
+                        </span>
+                        <span class="header-removed" v-else>删除</span>
+                      </div>
+                    </div>
+                  </n-form-item>
+                  <n-form-item v-if="group?.param_overrides" label="参数覆盖:" :span="2">
+                    <pre class="config-json">{{
+                      JSON.stringify(group?.param_overrides || "", null, 2)
+                    }}</pre>
+                  </n-form-item>
+                </n-form>
+              </div>
+            </div>
+          </n-tab-pane>
+        </n-tabs>
       </div>
     </n-card>
 
@@ -1025,6 +1045,10 @@ function resetPage() {
 .status-title {
   color: #64748b;
   font-size: 12px;
+}
+
+.tab-section {
+  margin-top: 12px;
 }
 
 .details-section {
