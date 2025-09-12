@@ -581,8 +581,19 @@ function handleGroupCreated(group: Group) {
   border-radius: 6px;
 }
 
+/* 选中状态下的拖拽占位符样式 - 与未选中状态保持一致 */
+.sortable-ghost.active {
+  background: transparent;
+  border: 2px dashed #667eea;
+}
+
 .sortable-ghost .group-icon,
 .sortable-ghost .group-content {
+  opacity: 0;
+}
+
+.sortable-ghost.active .group-icon,
+.sortable-ghost.active .group-content {
   opacity: 0;
 }
 
