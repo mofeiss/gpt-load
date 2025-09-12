@@ -42,6 +42,7 @@ export interface Group {
   name: string;
   display_name: string;
   description: string;
+  code_snippet?: string; // 代码片段
   sort: number;
   test_model: string;
   channel_type: "openai" | "gemini" | "anthropic";

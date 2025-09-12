@@ -160,6 +160,7 @@ type GroupCreateRequest struct {
 	Name               string              `json:"name"`
 	DisplayName        string              `json:"display_name"`
 	Description        string              `json:"description"`
+	CodeSnippet        string              `json:"code_snippet"`
 	Upstreams          json.RawMessage     `json:"upstreams"`
 	ChannelType        string              `json:"channel_type"`
 	Sort               int                 `json:"sort"`
@@ -264,6 +265,7 @@ func (s *Server) CreateGroup(c *gin.Context) {
 		Name:               name,
 		DisplayName:        strings.TrimSpace(req.DisplayName),
 		Description:        strings.TrimSpace(req.Description),
+		CodeSnippet:        strings.TrimSpace(req.CodeSnippet),
 		Upstreams:          cleanedUpstreams,
 		ChannelType:        channelType,
 		Sort:               req.Sort,
@@ -309,6 +311,7 @@ type GroupUpdateRequest struct {
 	Name               *string             `json:"name,omitempty"`
 	DisplayName        *string             `json:"display_name,omitempty"`
 	Description        *string             `json:"description,omitempty"`
+	CodeSnippet        *string             `json:"code_snippet,omitempty"`
 	Upstreams          json.RawMessage     `json:"upstreams"`
 	ChannelType        *string             `json:"channel_type,omitempty"`
 	Sort               *int                `json:"sort"`
@@ -365,6 +368,10 @@ func (s *Server) UpdateGroup(c *gin.Context) {
 
 	if req.Description != nil {
 		group.Description = strings.TrimSpace(*req.Description)
+	}
+
+	if req.CodeSnippet != nil {
+		group.CodeSnippet = strings.TrimSpace(*req.CodeSnippet)
 	}
 
 	if req.Upstreams != nil {
@@ -550,6 +557,7 @@ type GroupResponse struct {
 	Endpoint           string              `json:"endpoint"`
 	DisplayName        string              `json:"display_name"`
 	Description        string              `json:"description"`
+	CodeSnippet        string              `json:"code_snippet"`
 	Upstreams          datatypes.JSON      `json:"upstreams"`
 	ChannelType        string              `json:"channel_type"`
 	Sort               int                 `json:"sort"`
@@ -594,6 +602,7 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 		Endpoint:           endpoint,
 		DisplayName:        group.DisplayName,
 		Description:        group.Description,
+		CodeSnippet:        group.CodeSnippet,
 		Upstreams:          group.Upstreams,
 		ChannelType:        group.ChannelType,
 		Sort:               group.Sort,

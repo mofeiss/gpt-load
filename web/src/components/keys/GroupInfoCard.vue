@@ -60,6 +60,11 @@ const isEditingDescription = ref(false);
 const editingDescription = ref("");
 const descriptionLoading = ref(false);
 
+// 片段编辑相关状态（完全复制描述的模式）
+const isEditingCodeSnippet = ref(false);
+const editingCodeSnippet = ref("");
+const codeSnippetLoading = ref(false);
+
 const proxyKeysDisplay = computed(() => {
   if (!props.group?.proxy_keys) {
     return "-";
@@ -428,14 +433,104 @@ async function saveDescription() {
   }
 }
 
+// 开始编辑片段（复制描述的逻辑）
+function startEditingCodeSnippet() {
+  if (!props.group) {
+    return;
+  }
+  isEditingCodeSnippet.value = true;
+  editingCodeSnippet.value = props.group.code_snippet || "";
+
+  // 等待DOM更新后自动聚焦到输入框
+  nextTick(() => {
+    const codeSnippetInput = document.querySelector('.code-snippet-textarea .n-input__textarea-el') as HTMLElement;
+    if (codeSnippetInput) {
+      codeSnippetInput.focus();
+    }
+  });
+}
+
+// 取消编辑片段
+function cancelEditingCodeSnippet() {
+  isEditingCodeSnippet.value = false;
+  editingCodeSnippet.value = "";
+}
+
+// 保存片段编辑（完全复制描述的逻辑）
+async function saveCodeSnippet() {
+  if (!props.group || codeSnippetLoading.value || props.group.id === undefined) {
+    return;
+  }
+
+  try {
+    codeSnippetLoading.value = true;
+
+    // 调用API更新分组片段
+    const updatedGroup = await keysApi.updateGroup(props.group.id, {
+      code_snippet: editingCodeSnippet.value,
+    });
+
+    // 通知父组件更新数据
+    emit("group-updated", updatedGroup);
+    isEditingCodeSnippet.value = false;
+    editingCodeSnippet.value = "";
+
+    message.success("片段已更新");
+  } catch (error) {
+    console.error("更新片段失败:", error);
+    message.error("更新片段失败，请稍后重试");
+    // 保存失败时保持编辑状态，让用户可以继续编辑
+    isEditingCodeSnippet.value = true;
+  } finally {
+    codeSnippetLoading.value = false;
+  }
+}
+
 function resetPage() {
   showEditModal.value = false;
   showCopyModal.value = false;
   // 重置内联编辑状态
   isEditingDescription.value = false;
   editingDescription.value = "";
+  // 重置片段编辑状态
+  isEditingCodeSnippet.value = false;
+  editingCodeSnippet.value = "";
   // 重置标签页到描述卡片
   activeTab.value = "description";
+}
+
+// 复制描述内容
+async function copyDescription() {
+  if (!props.group?.description) {
+    return;
+  }
+  const success = await copy(props.group.description);
+  if (success) {
+    window.$message.success("描述已复制到剪贴板", {
+      duration: 3000,
+    });
+  } else {
+    window.$message.error("复制失败", {
+      duration: 3000,
+    });
+  }
+}
+
+// 复制片段内容
+async function copyCodeSnippet() {
+  if (!props.group?.code_snippet) {
+    return;
+  }
+  const success = await copy(props.group.code_snippet);
+  if (success) {
+    window.$message.success("片段已复制到剪贴板", {
+      duration: 3000,
+    });
+  } else {
+    window.$message.error("复制失败", {
+      duration: 3000,
+    });
+  }
 }
 </script>
 
@@ -658,7 +753,21 @@ function resetPage() {
           <!-- 描述卡片标签页 (索引 0) -->
           <n-tab-pane name="description" tab="描述卡片">
             <!-- 分组描述区域 -->
-            <div class="group-description-section">
+            <div class="group-description-section card-section">
+              <!-- 固定复制按钮 -->
+              <n-button
+                v-if="group?.description && !isEditingDescription"
+                quaternary
+                circle
+                size="small"
+                @click="copyDescription"
+                class="fixed-copy-btn"
+                title="复制描述"
+              >
+                <template #icon>
+                  <n-icon :component="CopyOutline" />
+                </template>
+              </n-button>
               <!-- 显示模式：点击可编辑 -->
               <div
                 class="description-content"
@@ -696,7 +805,61 @@ function resetPage() {
             </div>
           </n-tab-pane>
 
-          <!-- 详细信息标签页 (索引 1) -->
+          <!-- 片段标签页 (索引 1) -->
+          <n-tab-pane name="code-snippet" tab="片段">
+            <!-- 分组片段区域 -->
+            <div class="group-description-section card-section">
+              <!-- 固定复制按钮 -->
+              <n-button
+                v-if="group?.code_snippet && !isEditingCodeSnippet"
+                quaternary
+                circle
+                size="small"
+                @click="copyCodeSnippet"
+                class="fixed-copy-btn"
+                title="复制片段"
+              >
+                <template #icon>
+                  <n-icon :component="CopyOutline" />
+                </template>
+              </n-button>
+              <!-- 显示模式：点击可编辑 -->
+              <div
+                class="description-content code-snippet-content"
+                v-if="!isEditingCodeSnippet && group?.code_snippet"
+                @click="startEditingCodeSnippet"
+                :class="{ 'description-editable': !isEditingCodeSnippet }"
+              >
+                {{ group.code_snippet }}
+              </div>
+
+              <!-- 显示模式：没有片段时的占位符 -->
+              <div
+                class="description-content description-placeholder"
+                v-if="!isEditingCodeSnippet && !group?.code_snippet"
+                @click="startEditingCodeSnippet"
+                :class="{ 'description-editable': !isEditingCodeSnippet }"
+              >
+                点击添加代码片段...
+              </div>
+
+              <!-- 编辑模式 -->
+              <div class="description-edit-container" v-if="isEditingCodeSnippet">
+                <n-input
+                  v-model:value="editingCodeSnippet"
+                  type="textarea"
+                  placeholder="请输入代码片段..."
+                  :loading="codeSnippetLoading"
+                  @blur="saveCodeSnippet"
+                  @keyup.enter.ctrl="saveCodeSnippet"
+                  @keyup.esc="cancelEditingCodeSnippet"
+                  class="description-textarea code-snippet-textarea"
+                />
+              </div>
+            </div>
+          </n-tab-pane>
+
+          <!-- 详细信息标签页 (索引 2) -->
           <n-tab-pane name="details" tab="详细信息">
             <div class="details-content">
               <div class="detail-section">
@@ -1128,8 +1291,30 @@ function resetPage() {
   background: rgba(102, 126, 234, 0.05);
   border-radius: var(--border-radius-sm);
   border-left: 4px solid rgba(102, 126, 234, 0.3);
-  max-height: 300px; /* 限制最大高度为200px */
+  max-height: 400px; /* 限制最大高度为400px */
   overflow-y: auto; /* 超出时显示滚动条 */
+}
+
+/* 卡片区域容器 */
+.card-section {
+  position: relative;
+}
+
+/* 固定复制按钮 */
+.fixed-copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.fixed-copy-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.95);
 }
 
 /* 滚动条样式美化 */
@@ -1189,19 +1374,32 @@ function resetPage() {
 .description-edit-container {
   display: flex;
   flex-direction: column;
-  height: 300px; /* 固定高度为 300px */
+  height: 400px; /* 固定高度为 300px */
 }
 
 /* 描述编辑框样式 */
 .description-textarea {
-  height: 275px; /* 固定高度为 275px */
+  height: 375px; /* 固定高度为 375px */
 }
 
 .description-textarea :deep(.n-input__textarea-el) {
-  height: 275px !important; /* 固定高度为 275px */
-  min-height: 275px !important;
+  height: 375px !important; /* 固定高度为 375px */
+  min-height: 375px !important;
   resize: none !important;
   overflow-y: auto !important;
+}
+
+/* 片段内容专用样式 */
+.code-snippet-content {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.code-snippet-textarea :deep(.n-input__textarea-el) {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .proxy-keys-content {
