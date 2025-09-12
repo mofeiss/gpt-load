@@ -391,6 +391,7 @@ function startEditingDescription() {
   });
 }
 
+
 // 取消编辑描述
 function cancelEditingDescription() {
   isEditingDescription.value = false;
@@ -683,14 +684,13 @@ function resetPage() {
                 <n-input
                   v-model:value="editingDescription"
                   type="textarea"
-                  :rows="2"
-                  :autosize="{ minRows: 2, maxRows: 5 }"
                   placeholder="请输入分组描述..."
                   :loading="descriptionLoading"
                   @blur="saveDescription"
                   @keyup.enter.ctrl="saveDescription"
                   @keyup.esc="cancelEditingDescription"
                   ref="descriptionInput"
+                  class="description-textarea"
                 />
               </div>
             </div>
@@ -1128,6 +1128,27 @@ function resetPage() {
   background: rgba(102, 126, 234, 0.05);
   border-radius: var(--border-radius-sm);
   border-left: 4px solid rgba(102, 126, 234, 0.3);
+  max-height: 300px; /* 限制最大高度为200px */
+  overflow-y: auto; /* 超出时显示滚动条 */
+}
+
+/* 滚动条样式美化 */
+.group-description-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.group-description-section::-webkit-scrollbar-track {
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 3px;
+}
+
+.group-description-section::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+}
+
+.group-description-section::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 126, 234, 0.5);
 }
 
 /* 描述内容样式 */
@@ -1168,6 +1189,19 @@ function resetPage() {
 .description-edit-container {
   display: flex;
   flex-direction: column;
+  height: 300px; /* 固定高度为 300px */
+}
+
+/* 描述编辑框样式 */
+.description-textarea {
+  height: 275px; /* 固定高度为 275px */
+}
+
+.description-textarea :deep(.n-input__textarea-el) {
+  height: 275px !important; /* 固定高度为 275px */
+  min-height: 275px !important;
+  resize: none !important;
+  overflow-y: auto !important;
 }
 
 .proxy-keys-content {
