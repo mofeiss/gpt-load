@@ -16,6 +16,7 @@ const menuOptions = computed<MenuOption[]>(() => {
   const options: MenuOption[] = [
     renderMenuItem("dashboard", "仪表盘", "📊"),
     renderMenuItem("keys", "密钥管理", "🔑"),
+    renderMenuItem("ccr", "CCR", "🌐"),
     renderMenuItem("logs", "日志", "📋"),
     renderMenuItem("settings", "系统设置", "⚙️"),
   ];

@@ -4,10 +4,17 @@ import GlobalTaskProgressBar from "@/components/GlobalTaskProgressBar.vue";
 import Logout from "@/components/Logout.vue";
 import NavBar from "@/components/NavBar.vue";
 import { useMediaQuery } from "@vueuse/core";
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
+import { useRoute } from "vue-router";
 
 const isMenuOpen = ref(false);
 const isMobile = useMediaQuery("(max-width: 768px)");
+const route = useRoute();
+
+// 检查是否为 CCR 页面，需要全屏布局
+const isFullscreenPage = computed(() => {
+  return route.name === "ccr";
+});
 
 watch(isMobile, value => {
   if (!value) {
@@ -56,15 +63,20 @@ const toggleMenu = () => {
     </n-drawer>
 
     <n-layout-content class="layout-content">
-      <div class="content-wrapper">
+      <div v-if="!isFullscreenPage" class="content-wrapper">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
           </transition>
         </router-view>
       </div>
+      <div v-else class="fullscreen-content">
+        <router-view v-slot="{ Component }">
+          <component :is="Component" />
+        </router-view>
+      </div>
     </n-layout-content>
-    <app-footer />
+    <app-footer v-if="!isFullscreenPage" />
   </n-layout>
 
   <!-- 全局任务进度条 -->
@@ -153,6 +165,12 @@ const toggleMenu = () => {
 .content-wrapper {
   padding: 16px;
   min-height: calc(100vh - 111px);
+}
+
+.fullscreen-content {
+  padding: 16px 0 0 0; /* 只添加顶部间距，与其他页面保持一致 */
+  height: calc(100vh - 65px); /* 减去顶部导航栏高度 */
+  position: relative;
 }
 
 .layout-footer {
