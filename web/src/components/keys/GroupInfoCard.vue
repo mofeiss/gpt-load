@@ -1,17 +1,13 @@
 <script setup lang="ts">
 import { keysApi } from "@/api/keys";
-import { settingsApi } from "@/api/settings";
-import ProxyKeysInput from "@/components/common/ProxyKeysInput.vue";
-import type { Group, GroupConfigOption, GroupStatsResponse, UpstreamInfo } from "@/types/models";
+import type { Group, GroupConfigOption, GroupStatsResponse } from "@/types/models";
 import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
-import { Add, Close, CopyOutline, EyeOffOutline, EyeOutline, HelpCircleOutline, Pencil, Refresh, Remove, Trash } from "@vicons/ionicons5";
+import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
 import {
   NButton,
   NCard,
-  NCollapse,
-  NCollapseItem,
   NForm,
   NFormItem,
   NGradientText,
@@ -19,20 +15,15 @@ import {
   NGridItem,
   NIcon,
   NInput,
-  NInputNumber,
-  NSelect,
   NStatistic,
-  NSwitch,
   NTabs,
   NTabPane,
   NTag,
   NTooltip,
   useDialog,
   useMessage,
-  type FormRules,
 } from "naive-ui";
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
-import GroupFormModal from "./GroupFormModal.vue";
 import GroupCopyModal from "./GroupCopyModal.vue";
 import GroupSettingsForm from "./GroupSettingsForm.vue";
 
@@ -274,23 +265,6 @@ function handleCopy() {
   showCopyModal.value = true;
 }
 
-function handleGroupEdited(newGroup: Group) {
-  // showEditModal.value = false; // 不再需要模态框
-  if (newGroup) {
-    emit("refresh", newGroup);
-  }
-}
-
-// 处理编辑分组后的更新（带刷新）
-function handleGroupUpdated(newGroup: Group) {
-  // showEditModal.value = false; // 不再需要模态框
-  if (newGroup) {
-    emit("refresh", newGroup);
-    // 重新加载当前分组的统计数据
-    loadStats();
-  }
-}
-
 // 处理设置表单的更新
 function handleGroupUpdatedFromSettings(newGroup: Group) {
   if (newGroup) {
@@ -421,7 +395,6 @@ function startEditingDescription() {
   });
 }
 
-
 // 取消编辑描述
 function cancelEditingDescription() {
   isEditingDescription.value = false;
@@ -468,7 +441,9 @@ function startEditingCodeSnippet() {
 
   // 等待DOM更新后自动聚焦到输入框
   nextTick(() => {
-    const codeSnippetInput = document.querySelector('.code-snippet-textarea .n-input__textarea-el') as HTMLElement;
+    const codeSnippetInput = document.querySelector(
+      ".code-snippet-textarea .n-input__textarea-el"
+    ) as HTMLElement;
     if (codeSnippetInput) {
       codeSnippetInput.focus();
     }
@@ -1040,10 +1015,7 @@ async function copyCodeSnippet() {
                 <p>请先选择一个分组</p>
               </div>
               <div v-else class="settings-form-container">
-                <group-settings-form
-                  :group="group"
-                  @updated="handleGroupUpdatedFromSettings"
-                />
+                <group-settings-form :group="group" @updated="handleGroupUpdatedFromSettings" />
               </div>
             </div>
           </n-tab-pane>
@@ -1432,13 +1404,13 @@ async function copyCodeSnippet() {
 
 /* 片段内容专用样式 */
 .code-snippet-content {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace !important;
   font-size: 0.85rem;
   line-height: 1.4;
 }
 
 .code-snippet-textarea :deep(.n-input__textarea-el) {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
+  font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace !important;
   font-size: 0.85rem;
   line-height: 1.4;
 }

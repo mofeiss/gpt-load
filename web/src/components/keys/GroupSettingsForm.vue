@@ -190,7 +190,7 @@ const rules: FormRules = {
 // 监听group变化
 watch(
   () => props.group,
-  (group) => {
+  group => {
     if (group) {
       if (!channelTypesFetched.value) {
         fetchChannelTypes();
@@ -696,51 +696,7 @@ async function handleSubmit() {
           <n-switch v-model:value="formData.force_http11" />
         </n-form-item>
 
-        <!-- 描述独占一行 -->
-        <n-form-item label="描述" path="description">
-          <template #label>
-            <div class="form-label-with-tooltip">
-              描述
-              <n-tooltip trigger="hover" placement="top">
-                <template #trigger>
-                  <n-icon :component="HelpCircleOutline" class="help-icon" />
-                </template>
-                分组的详细说明，帮助团队成员了解该分组的用途和特点。支持多行文本
-              </n-tooltip>
-            </div>
-          </template>
-          <n-input
-            v-model:value="formData.description"
-            type="textarea"
-            placeholder=""
-            :rows="1"
-            :autosize="{ minRows: 1, maxRows: 5 }"
-            style="resize: none"
-          />
-        </n-form-item>
-
-        <!-- 代码片段 -->
-        <n-form-item label="代码片段" path="code_snippet">
-          <template #label>
-            <div class="form-label-with-tooltip">
-              代码片段
-              <n-tooltip trigger="hover" placement="top">
-                <template #trigger>
-                  <n-icon :component="HelpCircleOutline" class="help-icon" />
-                </template>
-                存储与此分组相关的代码示例或使用说明。支持多行文本
-              </n-tooltip>
-            </div>
-          </template>
-          <n-input
-            v-model:value="formData.code_snippet"
-            type="textarea"
-            placeholder=""
-            :rows="3"
-            :autosize="{ minRows: 3, maxRows: 10 }"
-            style="resize: none; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace"
-          />
-        </n-form-item>
+        <!-- 描述和代码片段已移至独立的tab页进行编辑 -->
       </div>
 
       <!-- 上游地址 -->
@@ -979,22 +935,14 @@ async function handleSubmit() {
                         v-model:value="headerRule.key"
                         placeholder="Header名称"
                         :status="
-                          !validateHeaderKeyUniqueness(
-                            formData.header_rules,
-                            index,
-                            headerRule.key
-                          )
+                          !validateHeaderKeyUniqueness(formData.header_rules, index, headerRule.key)
                             ? 'error'
                             : undefined
                         "
                       />
                       <div
                         v-if="
-                          !validateHeaderKeyUniqueness(
-                            formData.header_rules,
-                            index,
-                            headerRule.key
-                          )
+                          !validateHeaderKeyUniqueness(formData.header_rules, index, headerRule.key)
                         "
                         class="error-message"
                       >
@@ -1087,18 +1035,22 @@ async function handleSubmit() {
 
 <style scoped>
 .group-settings-form {
-  padding: 16px 0;
+  padding: 0;
 }
 
 .form-section {
   margin-top: 20px;
 }
 
+.form-section:first-child {
+  margin-top: 12px;
+}
+
 .section-title {
   font-size: 1rem;
   font-weight: 600;
   color: #374151;
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
   padding-bottom: 8px;
   border-bottom: 2px solid rgba(102, 126, 234, 0.1);
 }
@@ -1121,6 +1073,10 @@ async function handleSubmit() {
 
 :deep(.n-input-number) {
   --n-border-radius: 6px;
+}
+
+:deep(.n-form-item) {
+  margin-bottom: 16px;
 }
 
 :deep(.n-form-item-feedback-wrapper) {
