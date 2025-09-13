@@ -17,6 +17,8 @@ interface Emits {
   (e: "unarchived", group: Group): void;
   (e: "group-updated", group: Group): void;
   (e: "delete", group: Group): void;
+  (e: "edit", group: Group): void;
+  (e: "copy", group: Group): void;
 }
 
 const props = defineProps<Props>();
@@ -119,6 +121,10 @@ async function handleMenuSelect(key: string) {
             message.success("分组删除成功");
             // 通过事件通知父组件
             emit("delete", props.group);
+            // 删除成功后刷新页面
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           } catch (error) {
             console.error("删除分组失败:", error);
             message.error("删除分组失败");
@@ -133,9 +139,10 @@ async function handleMenuSelect(key: string) {
       emit("group-updated", props.group);
       break;
     case "copy":
+      emit("copy", props.group);
+      break;
     case "edit":
-      // 这些功能暂时不实现，保留原状
-      message.info(`${key === "edit" ? "编辑" : "复制"}功能待实现`);
+      emit("edit", props.group);
       break;
   }
 }

@@ -24,6 +24,7 @@ import {
   useMessage,
 } from "naive-ui";
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
+import { useRoute } from "vue-router";
 import GroupCopyModal from "./GroupCopyModal.vue";
 import GroupSettingsForm from "./GroupSettingsForm.vue";
 
@@ -42,6 +43,8 @@ interface Emits {
 const props = defineProps<Props>();
 
 const emit = defineEmits<Emits>();
+
+const route = useRoute();
 
 const stats = ref<GroupStatsResponse | null>(null);
 const loading = ref(false);
@@ -173,6 +176,10 @@ async function copyProxyKeys() {
 onMounted(() => {
   loadStats();
   loadConfigOptions();
+  // 检查路由参数，如果有 tab=settings，则切换到设置标签页
+  if (route.query.tab === "settings") {
+    activeTab.value = "settings";
+  }
 });
 
 watch(
@@ -180,6 +187,16 @@ watch(
   () => {
     resetPage();
     loadStats();
+  }
+);
+
+// 监听路由参数变化
+watch(
+  () => route.query.tab,
+  newTab => {
+    if (newTab === "settings") {
+      activeTab.value = "settings";
+    }
   }
 );
 

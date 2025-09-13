@@ -10,9 +10,11 @@ import {
   NForm,
   NFormItem,
   NIcon,
+  NInput,
   NModal,
   NRadio,
   NRadioGroup,
+  NCheckbox,
   useMessage,
 } from "naive-ui";
 import { computed, ref, watchEffect } from "vue";
@@ -28,7 +30,10 @@ interface Emits {
 }
 
 interface CopyFormData {
+  newGroupName: string;
   copyKeys: "all" | "valid_only" | "none";
+  copyDescription: boolean;
+  copyCodeSnippet: boolean;
 }
 
 const props = defineProps<Props>();
@@ -38,7 +43,10 @@ const message = useMessage();
 const loading = ref(false);
 
 const formData = ref<CopyFormData>({
+  newGroupName: "",
   copyKeys: "all",
+  copyDescription: true,
+  copyCodeSnippet: true,
 });
 
 const modalVisible = computed({
@@ -54,19 +62,13 @@ watchEffect(() => {
 });
 
 function resetForm() {
+  const baseName = props.sourceGroup?.name || "";
   formData.value = {
+    newGroupName: `${baseName}_copy`,
     copyKeys: "all",
+    copyDescription: true,
+    copyCodeSnippet: true,
   };
-}
-
-// 生成新分组名称预览（仅用于显示）
-function generateNewGroupName(): string {
-  if (!props.sourceGroup) {
-    return "";
-  }
-
-  const baseName = props.sourceGroup.name;
-  return `${baseName}_copy`;
 }
 
 async function handleCopy() {
@@ -75,10 +77,18 @@ async function handleCopy() {
     return;
   }
 
+  if (!formData.value.newGroupName.trim()) {
+    message.error("请输入分组名称");
+    return;
+  }
+
   loading.value = true;
   try {
     const copyData = {
+      new_group_name: formData.value.newGroupName.trim(),
       copy_keys: formData.value.copyKeys,
+      copy_description: formData.value.copyDescription,
+      copy_code_snippet: formData.value.copyCodeSnippet,
     };
     const result = await keysApi.copyGroup(props.sourceGroup.id, copyData);
 
@@ -127,26 +137,44 @@ function handleCancel() {
       </template>
 
       <div class="modal-content">
-        <div class="copy-preview">
-          <div class="preview-item">
-            <span class="preview-label">新分组名称:</span>
-            <code class="preview-value">{{ generateNewGroupName() }}</code>
-          </div>
-        </div>
+        <n-form
+          :model="formData"
+          label-placement="left"
+          label-width="100px"
+          class="group-copy-form"
+        >
+          <!-- 分组名称输入 -->
+          <n-form-item label="新分组名称" required>
+            <n-input
+              v-model:value="formData.newGroupName"
+              placeholder="请输入新分组名称"
+              :maxlength="30"
+              show-count
+            />
+          </n-form-item>
 
-        <n-form :model="formData" label-placement="left" label-width="80px" class="group-copy-form">
           <!-- 密钥复制选项 -->
-          <div class="copy-options">
-            <n-form-item label="密钥处理">
-              <n-radio-group v-model:value="formData.copyKeys" name="copyKeys">
-                <div class="radio-options">
-                  <n-radio value="all" class="radio-option">复制所有密钥</n-radio>
-                  <n-radio value="valid_only" class="radio-option">仅复制有效密钥</n-radio>
-                  <n-radio value="none" class="radio-option">不复制密钥</n-radio>
-                </div>
-              </n-radio-group>
-            </n-form-item>
-          </div>
+          <n-form-item label="密钥处理">
+            <n-radio-group v-model:value="formData.copyKeys" name="copyKeys">
+              <div class="radio-options">
+                <n-radio value="all" class="radio-option">复制所有密钥</n-radio>
+                <n-radio value="valid_only" class="radio-option">仅复制有效密钥</n-radio>
+                <n-radio value="none" class="radio-option">不复制密钥</n-radio>
+              </div>
+            </n-radio-group>
+          </n-form-item>
+
+          <!-- 内容复制选项 -->
+          <n-form-item label="内容选项">
+            <div class="checkbox-options">
+              <n-checkbox v-model:checked="formData.copyDescription" class="checkbox-option">
+                复制描述卡片
+              </n-checkbox>
+              <n-checkbox v-model:checked="formData.copyCodeSnippet" class="checkbox-option">
+                复制代码片段
+              </n-checkbox>
+            </div>
+          </n-form-item>
         </n-form>
       </div>
 
@@ -176,33 +204,6 @@ function handleCancel() {
   padding: 0;
 }
 
-.copy-preview {
-  background: rgba(24, 160, 88, 0.05);
-  border: 1px solid rgba(24, 160, 88, 0.2);
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 16px;
-}
-
-.preview-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.preview-label {
-  font-weight: 500;
-  color: #18a058;
-}
-
-.preview-value {
-  background: rgba(24, 160, 88, 0.1);
-  color: #18a058;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
 .copy-options {
   margin-bottom: 16px;
 }
@@ -214,6 +215,16 @@ function handleCancel() {
 }
 
 .radio-option {
+  margin: 0;
+}
+
+.checkbox-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkbox-option {
   margin: 0;
 }
 

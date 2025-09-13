@@ -65,7 +65,10 @@ export const keysApi = {
   async copyGroup(
     groupId: number,
     copyData: {
+      new_group_name?: string;
       copy_keys: "none" | "valid_only" | "all";
+      copy_description?: boolean;
+      copy_code_snippet?: boolean;
     }
   ): Promise<{
     group: Group;

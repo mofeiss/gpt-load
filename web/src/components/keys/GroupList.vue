@@ -4,8 +4,10 @@ import { getGroupDisplayName } from "@/utils/display";
 import { Add, Search } from "@vicons/ionicons5";
 import { NButton, NCard, NEmpty, NInput, NSpin, NTag, NCollapse, NCollapseItem } from "naive-ui";
 import { ref, watch, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupContextMenu from "./GroupContextMenu.vue";
+import GroupCopyModal from "./GroupCopyModal.vue";
 import { VueDraggableNext } from "vue-draggable-next";
 import { log, setupGlobalLogExporter } from "@/utils/debug-logger";
 
@@ -35,8 +37,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<Emits>();
 
+const router = useRouter();
+
 const searchText = ref("");
 const showGroupModal = ref(false);
+const showCopyModal = ref(false);
+const selectedGroupForCopy = ref<Group | null>(null);
 
 // --- NEW DRAGGABLE STATE MANAGEMENT ---
 const localActiveGroups = ref<Group[]>([]);
@@ -214,6 +220,34 @@ function handleGroupCreated(group: Group) {
     emit("refresh-and-select", group.id);
   }
 }
+
+// 处理复制分组
+function handleCopyGroup(group: Group) {
+  selectedGroupForCopy.value = group;
+  showCopyModal.value = true;
+}
+
+// 处理编辑分组
+function handleEditGroup(group: Group) {
+  // 跳转到 Keys 页面并选择该分组，然后切换到设置标签
+  router.push({
+    path: "/keys",
+    query: {
+      groupId: group.id,
+      tab: "settings",
+    },
+  });
+}
+
+// 处理复制成功
+function handleCopySuccess(newGroup: Group) {
+  showCopyModal.value = false;
+  selectedGroupForCopy.value = null;
+  // 通知父组件刷新并切换到新创建的分组
+  if (newGroup.id) {
+    emit("refresh-and-select", newGroup.id);
+  }
+}
 </script>
 
 <template>
@@ -348,9 +382,18 @@ function handleGroupCreated(group: Group) {
       @unarchived="handleUnarchiveGroup"
       @group-updated="group => emit('group-updated', group)"
       @delete="group => emit('group-updated', group)"
+      @copy="handleCopyGroup"
+      @edit="handleEditGroup"
     />
 
     <group-form-modal v-model:show="showGroupModal" @success="handleGroupCreated" />
+
+    <!-- 复制分组模态框 -->
+    <group-copy-modal
+      v-model:show="showCopyModal"
+      :source-group="selectedGroupForCopy"
+      @success="handleCopySuccess"
+    />
   </div>
 </template>
 

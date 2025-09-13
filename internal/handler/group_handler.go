@@ -976,7 +976,10 @@ func (s *Server) GetGroupStats(c *gin.Context) {
 
 // GroupCopyRequest defines the payload for copying a group.
 type GroupCopyRequest struct {
-	CopyKeys string `json:"copy_keys"` // "none"|"valid_only"|"all"
+	NewGroupName    string `json:"new_group_name"`    // 新分组名称
+	CopyKeys        string `json:"copy_keys"`         // "none"|"valid_only"|"all"
+	CopyDescription bool   `json:"copy_description"`  // 是否复制描述
+	CopyCodeSnippet bool   `json:"copy_code_snippet"` // 是否复制代码片段
 }
 
 // GroupCopyResponse defines the response for group copy operation.
@@ -1038,6 +1041,16 @@ func (s *Server) CopyGroup(c *gin.Context) {
 		req.CopyKeys = "all"
 	}
 
+	// Validate and process new group name
+	var newGroupName string
+	if req.NewGroupName != "" {
+		newGroupName = strings.TrimSpace(req.NewGroupName)
+		if !isValidGroupName(newGroupName) {
+			response.Error(c, app_errors.NewAPIError(app_errors.ErrValidation, "无效的分组名称。只能包含小写字母、数字、中划线或下划线，长度3-30位"))
+			return
+		}
+	}
+
 	// Check if source group exists
 	var sourceGroup models.Group
 	if err := s.DB.First(&sourceGroup, sourceGroupID).Error; err != nil {
@@ -1056,10 +1069,29 @@ func (s *Server) CopyGroup(c *gin.Context) {
 	// Create new group by copying source group and overriding specific fields
 	newGroup := sourceGroup
 	newGroup.ID = 0
-	newGroup.Name = s.generateUniqueGroupName(sourceGroup.Name)
+
+	// Use provided name or generate unique name
+	if newGroupName != "" {
+		newGroup.Name = newGroupName
+	} else {
+		newGroup.Name = s.generateUniqueGroupName(sourceGroup.Name)
+	}
+
+	// Handle display name
 	if sourceGroup.DisplayName != "" {
 		newGroup.DisplayName = sourceGroup.DisplayName + " Copy"
 	}
+
+	// Handle description based on copy settings
+	if !req.CopyDescription {
+		newGroup.Description = ""
+	}
+
+	// Handle code snippet based on copy settings
+	if !req.CopyCodeSnippet {
+		newGroup.CodeSnippet = ""
+	}
+
 	newGroup.CreatedAt = time.Time{}
 	newGroup.UpdatedAt = time.Time{}
 	newGroup.LastValidatedAt = nil
