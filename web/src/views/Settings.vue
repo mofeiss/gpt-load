@@ -74,6 +74,11 @@ async function handleSubmit() {
     isSaving.value = true;
     await settingsApi.updateSettings(form.value);
     await fetchSettings();
+    message.success("设置保存成功");
+    window.location.reload();
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "未知错误";
+    message.error(`保存设置失败：${errorMessage}`);
   } finally {
     isSaving.value = false;
   }
