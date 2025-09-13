@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { type MenuOption } from "naive-ui";
-import { computed, h, watch } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { computed, h } from "vue";
 
 const props = defineProps({
   mode: {
     type: String,
     default: "horizontal",
   },
+  activeTab: {
+    type: String,
+    required: true,
+  },
 });
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits<{
+  tabChange: [tabName: string];
+}>();
 
 const menuOptions = computed<MenuOption[]>(() => {
   const options: MenuOption[] = [
@@ -24,52 +29,21 @@ const menuOptions = computed<MenuOption[]>(() => {
   return options;
 });
 
-const route = useRoute();
-const activeMenu = computed(() => route.name);
-
-watch(
-  activeMenu,
-  newMenu => {
-    if (props.mode === "vertical") {
-      emit("close");
-    }
-
-    // 保存当前视图到 localStorage
-    if (newMenu && typeof newMenu === "string") {
-      localStorage.setItem("lastActiveView", newMenu);
-    }
-  },
-  { immediate: true }
-);
-
-// 添加额外的监听器来处理路由变化（包括直接URL访问）
-watch(
-  () => route.name,
-  newRouteName => {
-    if (newRouteName && typeof newRouteName === "string") {
-      localStorage.setItem("lastActiveView", newRouteName);
-    }
-  },
-  { immediate: true }
-);
+// tab 切换处理
+const handleTabClick = (tabName: string) => {
+  emit("tabChange", tabName);
+};
 
 function renderMenuItem(key: string, label: string, icon: string): MenuOption {
   return {
     label: () =>
       h(
-        RouterLink,
+        "div",
         {
-          to: {
-            name: key,
-          },
           class: "nav-menu-item",
+          onClick: () => handleTabClick(key),
         },
-        {
-          default: () => [
-            h("span", { class: "nav-item-icon" }, icon),
-            h("span", { class: "nav-item-text" }, label),
-          ],
-        }
+        [h("span", { class: "nav-item-icon" }, icon), h("span", { class: "nav-item-text" }, label)]
       ),
     key,
   };
@@ -78,7 +52,7 @@ function renderMenuItem(key: string, label: string, icon: string): MenuOption {
 
 <template>
   <div>
-    <n-menu :mode="mode" :options="menuOptions" :value="activeMenu" class="modern-menu" />
+    <n-menu :mode="props.mode" :options="menuOptions" :value="props.activeTab" class="modern-menu" />
   </div>
 </template>
 
