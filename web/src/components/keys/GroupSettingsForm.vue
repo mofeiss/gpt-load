@@ -478,6 +478,7 @@ async function handleSubmit() {
     const res = await keysApi.updateGroup(props.group.id, submitData);
     emit("updated", res);
     message.success("分组设置已更新");
+    window.location.reload();
   } finally {
     loading.value = false;
   }
