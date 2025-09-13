@@ -25,6 +25,20 @@ import (
 	"gorm.io/datatypes"
 )
 
+// getChannelEndpoint returns the API endpoint path for a given channel type
+func (s *Server) getChannelEndpoint(channelType string) string {
+	switch channelType {
+	case "openai":
+		return "/v1/chat/completions"
+	case "anthropic":
+		return "/v1/messages?beta=true"
+	case "gemini":
+		return "/v1beta/models/"
+	default:
+		return ""
+	}
+}
+
 // isValidChannelType checks if the channel type is valid by checking against the registered channels.
 func isValidChannelType(channelType string) bool {
 	channels := channel.GetChannels()
@@ -582,7 +596,19 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 	if appURL != "" {
 		u, err := url.Parse(appURL)
 		if err == nil {
-			u.Path = strings.TrimRight(u.Path, "/") + "/proxy/" + group.Name
+			channelEndpoint := s.getChannelEndpoint(group.ChannelType)
+			basePath := strings.TrimRight(u.Path, "/") + "/proxy/" + group.Name
+
+			// 如果channelEndpoint包含查询参数，需要分开处理
+			if strings.Contains(channelEndpoint, "?") {
+				parts := strings.SplitN(channelEndpoint, "?", 2)
+				u.Path = basePath + parts[0]
+				if parts[1] != "" {
+					u.RawQuery = parts[1]
+				}
+			} else {
+				u.Path = basePath + channelEndpoint
+			}
 			endpoint = u.String()
 		}
 	}
