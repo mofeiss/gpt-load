@@ -26,7 +26,7 @@ import {
   useDialog,
   type MessageReactive,
 } from "naive-ui";
-import { h, ref, watch } from "vue";
+import { h, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import KeyCreateDialog from "./KeyCreateDialog.vue";
 import KeyDeleteDialog from "./KeyDeleteDialog.vue";
 
@@ -86,6 +86,33 @@ const isRestoring = ref(false);
 
 const createDialogShow = ref(false);
 const deleteDialogShow = ref(false);
+
+// 全局点击事件处理器
+function handleGlobalClick(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+
+  // 检查是否点击在备注编辑区域内
+  const remarksEdit = target.closest(".remarks-edit");
+  const remarksDisplay = target.closest(".remarks-display");
+
+  if (!remarksEdit && !remarksDisplay) {
+    // 点击在备注区域外，取消所有正在编辑的备注
+    keys.value.forEach(key => {
+      if (key.is_editing_remarks) {
+        cancelEditingRemarks(key);
+      }
+    });
+  }
+}
+
+// 添加和移除全局点击事件监听器
+onMounted(() => {
+  document.addEventListener("click", handleGlobalClick);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", handleGlobalClick);
+});
 
 watch(
   () => props.selectedGroup,
@@ -667,9 +694,16 @@ async function toggleKeyDisableStatus(key: KeyRow) {
 }
 
 // 开始编辑备注
-function startEditingRemarks(key: KeyRow) {
+async function startEditingRemarks(key: KeyRow) {
   key.is_editing_remarks = true;
   key.temp_remarks = key.remarks || "";
+
+  // 等待 DOM 更新后聚焦到输入框
+  await nextTick();
+  const input = document.querySelector(`.key-card[data-key-id="${key.id}"] .remarks-edit input`);
+  if (input instanceof HTMLInputElement) {
+    input.focus();
+  }
 }
 
 // 保存备注
@@ -756,7 +790,13 @@ function cancelEditingRemarks(key: KeyRow) {
           <n-empty description="没有找到匹配的密钥" />
         </div>
         <div v-else class="keys-grid">
-          <div v-for="key in keys" :key="key.id" class="key-card" :class="getStatusClass(key)">
+          <div
+            v-for="key in keys"
+            :key="key.id"
+            class="key-card"
+            :class="getStatusClass(key)"
+            :data-key-id="key.id"
+          >
             <!-- 主要信息行：Key + 快速操作 -->
             <div class="key-main">
               <div class="key-section">
@@ -772,56 +812,58 @@ function cancelEditingRemarks(key: KeyRow) {
                   </template>
                   有效
                 </n-tag>
-                <n-input
-                  class="key-text"
-                  :value="key.is_visible ? key.key_value : maskKey(key.key_value)"
-                  readonly
-                  size="small"
-                />
-                <div class="quick-actions">
-                  <n-button size="tiny" text @click="toggleKeyVisibility(key)" title="显示/隐藏">
-                    <template #icon>
-                      <n-icon :component="key.is_visible ? EyeOffOutline : EyeOutline" />
-                    </template>
-                  </n-button>
-                  <n-button size="tiny" text @click="copyKey(key)" title="复制">
-                    <template #icon>
-                      <n-icon :component="CopyOutline" />
-                    </template>
-                  </n-button>
+                <!-- 备注信息 -->
+                <div class="key-remarks">
+                  <div v-if="!key.is_editing_remarks" class="remarks-display">
+                    <span
+                      v-if="key.remarks"
+                      class="remarks-text"
+                      @click="startEditingRemarks(key)"
+                      title="点击编辑备注"
+                    >
+                      {{ key.remarks }}
+                    </span>
+                    <span
+                      v-else
+                      class="remarks-placeholder"
+                      @click="startEditingRemarks(key)"
+                      title="点击添加备注"
+                    >
+                      点击添加备注
+                    </span>
+                  </div>
+                  <div v-else class="remarks-edit">
+                    <n-input
+                      v-model:value="key.temp_remarks"
+                      size="small"
+                      placeholder="输入备注信息"
+                      @blur="saveRemarks(key)"
+                      @keyup.enter="saveRemarks(key)"
+                      @keyup.escape="cancelEditingRemarks(key)"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- 备注信息 -->
-            <div class="key-remarks">
-              <div v-if="!key.is_editing_remarks" class="remarks-display">
-                <span
-                  v-if="key.remarks"
-                  class="remarks-text"
-                  @click="startEditingRemarks(key)"
-                  title="点击编辑备注"
-                >
-                  {{ key.remarks }}
-                </span>
-                <span
-                  v-else
-                  class="remarks-placeholder"
-                  @click="startEditingRemarks(key)"
-                  title="点击添加备注"
-                >
-                  点击添加备注
-                </span>
-              </div>
-              <div v-else class="remarks-edit">
-                <n-input
-                  v-model:value="key.temp_remarks"
-                  size="small"
-                  placeholder="输入备注信息"
-                  @blur="saveRemarks(key)"
-                  @keyup.enter="saveRemarks(key)"
-                  @keyup.escape="cancelEditingRemarks(key)"
-                />
+            <div class="key-section key-value-section">
+              <n-input
+                class="key-text"
+                :value="key.is_visible ? key.key_value : maskKey(key.key_value)"
+                readonly
+                size="small"
+              />
+              <div class="quick-actions">
+                <n-button size="tiny" text @click="toggleKeyVisibility(key)" title="显示/隐藏">
+                  <template #icon>
+                    <n-icon :component="key.is_visible ? EyeOffOutline : EyeOutline" />
+                  </template>
+                </n-button>
+                <n-button size="tiny" text @click="copyKey(key)" title="复制">
+                  <template #icon>
+                    <n-icon :component="CopyOutline" />
+                  </template>
+                </n-button>
               </div>
             </div>
 
