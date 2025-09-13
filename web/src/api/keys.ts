@@ -123,6 +123,21 @@ export const keysApi = {
     return res.data;
   },
 
+  // 异步批量添加密钥（带备注）
+  async addKeysAsyncWithRemarks(
+    group_id: number,
+    keys_text: string,
+    remarks: { remarks: string; useForAll: boolean }
+  ): Promise<TaskInfo> {
+    const res = await http.post("/keys/add-async-with-remarks", {
+      group_id,
+      keys_text,
+      remarks: remarks.remarks,
+      use_remarks_for_all: remarks.useForAll,
+    });
+    return res.data;
+  },
+
   // 测试密钥
   async testKeys(
     group_id: number,

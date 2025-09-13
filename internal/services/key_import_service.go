@@ -50,6 +50,49 @@ func (s *KeyImportService) StartImportTask(group *models.Group, keysText string)
 	return initialStatus, nil
 }
 
+// StartImportTaskWithRemarks initiates a new asynchronous key import task with remarks.
+func (s *KeyImportService) StartImportTaskWithRemarks(group *models.Group, keysText string, remarks string, useForAll bool) (*TaskStatus, error) {
+	keys := s.KeyService.ParseKeysFromText(keysText)
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("no valid keys found in input text")
+	}
+
+	initialStatus, err := s.TaskService.StartTask(TaskTypeKeyImport, group.Name, len(keys), importTimeout)
+	if err != nil {
+		return nil, err
+	}
+
+	go s.runImportWithRemarks(group, keys, remarks, useForAll)
+
+	return initialStatus, nil
+}
+
+// runImportWithRemarks handles the actual import process with remarks.
+func (s *KeyImportService) runImportWithRemarks(group *models.Group, keys []string, remarks string, useForAll bool) {
+	progressCallback := func(processed int) {
+		if err := s.TaskService.UpdateProgress(processed); err != nil {
+			logrus.Warnf("Failed to update task progress for group %d: %v", group.ID, err)
+		}
+	}
+
+	addedCount, ignoredCount, err := s.KeyService.processAndCreateKeysWithRemarks(group.ID, keys, remarks, useForAll, progressCallback)
+	if err != nil {
+		if endErr := s.TaskService.EndTask(nil, err); endErr != nil {
+			logrus.Errorf("Failed to end task with error for group %d: %v (original error: %v)", group.ID, endErr, err)
+		}
+		return
+	}
+
+	result := KeyImportResult{
+		AddedCount:   addedCount,
+		IgnoredCount: ignoredCount,
+	}
+
+	if endErr := s.TaskService.EndTask(result, nil); endErr != nil {
+		logrus.Errorf("Failed to end task with success result for group %d: %v", group.ID, endErr)
+	}
+}
+
 func (s *KeyImportService) runImport(group *models.Group, keys []string) {
 	progressCallback := func(processed int) {
 		if err := s.TaskService.UpdateProgress(processed); err != nil {

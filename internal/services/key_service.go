@@ -144,6 +144,83 @@ func (s *KeyService) processAndCreateKeys(
 	return addedCount, len(keys) - addedCount, nil
 }
 
+// processAndCreateKeysWithRemarks is lowest-level reusable function for adding keys with remarks.
+func (s *KeyService) processAndCreateKeysWithRemarks(
+	groupID uint,
+	keys []string,
+	remarks string,
+	useForAll bool,
+	progressCallback func(processed int),
+) (addedCount int, ignoredCount int, err error) {
+	// 1. Get existing keys in group for deduplication
+	var existingKeys []models.APIKey
+	if err := s.DB.Where("group_id = ?", groupID).Select("key_value").Find(&existingKeys).Error; err != nil {
+		return 0, 0, err
+	}
+	existingKeyMap := make(map[string]bool)
+	for _, k := range existingKeys {
+		existingKeyMap[k.KeyValue] = true
+	}
+
+	// 2. Prepare new keys for creation
+	var newKeysToCreate []models.APIKey
+	uniqueNewKeys := make(map[string]bool)
+
+	for _, keyVal := range keys {
+		trimmedKey := strings.TrimSpace(keyVal)
+		if trimmedKey == "" {
+			continue
+		}
+		if existingKeyMap[trimmedKey] || uniqueNewKeys[trimmedKey] {
+			continue
+		}
+		if s.isValidKeyFormat(trimmedKey) {
+			uniqueNewKeys[trimmedKey] = true
+			
+			// Prepare key with remarks
+			key := models.APIKey{
+				GroupID:  groupID,
+				KeyValue: trimmedKey,
+				Status:   models.KeyStatusActive,
+			}
+			
+			// Apply remarks if provided
+			if remarks != "" && useForAll {
+				key.Remarks = remarks
+			} else if remarks != "" {
+				// If not using remarks for all, only apply to first key
+				if len(newKeysToCreate) == 0 {
+					key.Remarks = remarks
+				}
+			}
+			
+			newKeysToCreate = append(newKeysToCreate, key)
+		}
+	}
+
+	if len(newKeysToCreate) == 0 {
+		return 0, len(keys), nil
+	}
+
+	// 3. Use KeyProvider to add keys in chunks
+	for i := 0; i < len(newKeysToCreate); i += chunkSize {
+		end := i + chunkSize
+		if end > len(newKeysToCreate) {
+			end = len(newKeysToCreate)
+		}
+		chunk := newKeysToCreate[i:end]
+		if err := s.KeyProvider.AddKeys(groupID, chunk); err != nil {
+			return 0, 0, err
+		}
+		addedCount += len(chunk)
+		if progressCallback != nil {
+			progressCallback(i + len(chunk))
+		}
+	}
+
+	return addedCount, len(keys) - addedCount, nil
+}
+
 // ParseKeysFromText parses a string of keys from various formats into a string slice.
 // This function is exported to be shared with the handler layer.
 func (s *KeyService) ParseKeysFromText(text string) []string {

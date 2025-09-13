@@ -58,6 +58,14 @@ type KeyTextRequest struct {
 	KeysText string `json:"keys_text" binding:"required"`
 }
 
+// KeyTextWithRemarksRequest defines a payload for adding keys with remarks.
+type KeyTextWithRemarksRequest struct {
+	GroupID          uint   `json:"group_id" binding:"required"`
+	KeysText         string `json:"keys_text" binding:"required"`
+	Remarks          string `json:"remarks"`
+	UseRemarksForAll bool   `json:"use_remarks_for_all"`
+}
+
 // GroupIDRequest defines a generic payload for operations requiring only a group ID.
 type GroupIDRequest struct {
 	GroupID uint `json:"group_id" binding:"required"`
@@ -134,6 +142,33 @@ func (s *Server) AddMultipleKeysAsync(c *gin.Context) {
 	}
 
 	taskStatus, err := s.KeyImportService.StartImportTask(group, req.KeysText)
+	if err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrTaskInProgress, err.Error()))
+		return
+	}
+
+	response.Success(c, taskStatus)
+}
+
+// AddMultipleKeysAsyncWithRemarks handles creating new keys from a text block with remarks.
+func (s *Server) AddMultipleKeysAsyncWithRemarks(c *gin.Context) {
+	var req KeyTextWithRemarksRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInvalidJSON, err.Error()))
+		return
+	}
+
+	group, ok := s.findGroupByID(c, req.GroupID)
+	if !ok {
+		return
+	}
+
+	if err := validateKeysText(req.KeysText); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrValidation, err.Error()))
+		return
+	}
+
+	taskStatus, err := s.KeyImportService.StartImportTaskWithRemarks(group, req.KeysText, req.Remarks, req.UseRemarksForAll)
 	if err != nil {
 		response.Error(c, app_errors.NewAPIError(app_errors.ErrTaskInProgress, err.Error()))
 		return

@@ -2,7 +2,7 @@
 import { keysApi } from "@/api/keys";
 import { appState } from "@/utils/app-state";
 import { Close } from "@vicons/ionicons5";
-import { NButton, NCard, NInput, NModal } from "naive-ui";
+import { NButton, NCard, NInput, NModal, NCheckbox } from "naive-ui";
 import { ref, watch } from "vue";
 
 interface Props {
@@ -22,6 +22,8 @@ const emit = defineEmits<Emits>();
 
 const loading = ref(false);
 const keysText = ref("");
+const remarks = ref("");
+const useRemarksForAll = ref(false);
 
 // 监听弹窗显示状态
 watch(
@@ -36,6 +38,8 @@ watch(
 // 重置表单
 function resetForm() {
   keysText.value = "";
+  remarks.value = "";
+  useRemarksForAll.value = false;
 }
 
 // 关闭弹窗
@@ -52,7 +56,10 @@ async function handleSubmit() {
   try {
     loading.value = true;
 
-    await keysApi.addKeysAsync(props.groupId, keysText.value);
+    await keysApi.addKeysAsyncWithRemarks(props.groupId, keysText.value, {
+      remarks: remarks.value,
+      useForAll: useRemarksForAll.value,
+    });
     resetForm();
     handleClose();
     window.$message.success("密钥导入任务已开始，请稍后在下方查看进度。", {
@@ -90,6 +97,19 @@ async function handleSubmit() {
         :rows="8"
         style="margin-top: 20px"
       />
+
+      <div style="margin-top: 16px">
+        <n-input
+          v-model:value="remarks"
+          type="textarea"
+          placeholder="为密钥添加备注（可选）"
+          :rows="3"
+          style="margin-bottom: 12px"
+        />
+        <div style="display: flex; align-items: center; gap: 8px">
+          <n-checkbox v-model:checked="useRemarksForAll">将此备注应用于所有密钥</n-checkbox>
+        </div>
+      </div>
 
       <template #footer>
         <div style="display: flex; justify-content: flex-end; gap: 12px">
