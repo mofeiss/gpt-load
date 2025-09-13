@@ -18,8 +18,8 @@ export default defineConfig(({ mode }) => {
     },
     // 开发服务器配置
     server: {
-      // 代理配置示例
-      port: 3001,
+      // 代理配置示例 不要和后端端口写一致 否则会冲突
+      port: 3002,
       proxy: {
         "/api": {
           target: env.VITE_API_BASE_URL || "http://127.0.0.1:3001",
