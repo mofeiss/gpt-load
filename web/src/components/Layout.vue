@@ -73,10 +73,11 @@ watch(isMobile, value => {
   }
 });
 
-// 恢复上次访问的页面
+// 恢复上次访问的页面（仅在首页时执行）
 onMounted(() => {
   const savedView = localStorage.getItem("lastActiveView");
-  if (savedView && tabs.some(tab => tab.name === savedView)) {
+  // 只有当前在根路径时才恢复上次访问的页面，避免刷新时强制跳转
+  if (savedView && tabs.some(tab => tab.name === savedView) && route.path === "/") {
     activeTab.value = savedView;
     syncUrlWithTab(savedView);
   }
@@ -130,7 +131,7 @@ const toggleMenu = () => {
             v-show="activeTab === tab.name"
             :class="{
               'content-wrapper': tab.name !== 'ccr',
-              'fullscreen-content': tab.name === 'ccr'
+              'fullscreen-content': tab.name === 'ccr',
             }"
           >
             <component :is="tab.component" />

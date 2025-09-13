@@ -5,13 +5,12 @@ import GroupList from "@/components/keys/GroupList.vue";
 import KeyTable from "@/components/keys/KeyTable.vue";
 import type { Group } from "@/types/models";
 import { onMounted, ref } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { useMessage } from "naive-ui";
 
 const groups = ref<Group[]>([]);
 const loading = ref(false);
 const selectedGroup = ref<Group | null>(null);
-const router = useRouter();
 const route = useRoute();
 const message = useMessage();
 
@@ -62,9 +61,10 @@ function handleGroupSelect(group: Group | null) {
     localStorage.removeItem("lastSelectedGroupId");
   }
 
-  if (String(group?.id) !== String(route.query.groupId)) {
-    router.push({ name: "keys", query: { groupId: group?.id || "" } });
-  }
+  // 注释掉强制路由跳转，避免页面刷新时的跳转问题
+  // if (String(group?.id) !== String(route.query.groupId)) {
+  //   router.push({ name: "keys", query: { groupId: group?.id || "" } });
+  // }
 }
 
 async function handleGroupRefresh() {
