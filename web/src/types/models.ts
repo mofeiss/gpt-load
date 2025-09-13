@@ -59,6 +59,7 @@ export interface Group {
   archived?: boolean; // 归档状态
   archived_at?: string; // 归档时间
   force_http11?: boolean | null; // 是否强制使用 HTTP/1.1
+  ccr_models?: string[]; // CCR 模型列表
 }
 
 export interface GroupConfigOption {

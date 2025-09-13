@@ -4,7 +4,15 @@ import type { Group, GroupConfigOption, GroupStatsResponse } from "@/types/model
 import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
-import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
+import {
+  CheckmarkOutline,
+  CopyOutline,
+  EyeOffOutline,
+  EyeOutline,
+  Pencil,
+  Refresh,
+  Trash,
+} from "@vicons/ionicons5";
 import {
   NButton,
   NCard,
@@ -556,18 +564,27 @@ async function copyCodeSnippet() {
     <n-card :bordered="false" class="group-info-card">
       <template #header>
         <div class="card-header">
-          <!-- 第 1 列：分组名称和显示名称 -->
+          <!-- 第 1 列：显示名称和按钮 -->
           <div class="header-column-1">
             <div class="column-row-1">
               <h3 class="group-title">
-                {{ group ? group.name : "请选择分组" }}
+                {{ group ? group.display_name || group.name : "请选择分组" }}
               </h3>
             </div>
             <div class="column-row-2">
-              <span v-if="group && group.display_name" class="group-display-name">
-                {{ group.display_name }}
-              </span>
-              <span v-else class="group-display-name-placeholder">&nbsp;</span>
+              <n-button
+                v-if="group"
+                type="primary"
+                size="small"
+                @click="() => {}"
+                class="apply-to-ccr-btn"
+              >
+                <template #icon>
+                  <n-icon :component="CheckmarkOutline" />
+                </template>
+                应用到ccr
+              </n-button>
+              <span v-else class="group-button-placeholder">&nbsp;</span>
             </div>
           </div>
 
@@ -1188,7 +1205,8 @@ async function copyCodeSnippet() {
 .channel-switch-btn,
 .copy-btn,
 .edit-btn,
-.delete-btn {
+.delete-btn,
+.apply-to-ccr-btn {
   opacity: 0.8;
   transition: opacity 0.2s ease;
   flex-shrink: 0;
@@ -1197,8 +1215,23 @@ async function copyCodeSnippet() {
 .channel-switch-btn:hover,
 .copy-btn:hover,
 .edit-btn:hover,
-.delete-btn:hover {
+.delete-btn:hover,
+.apply-to-ccr-btn:hover {
   opacity: 1;
+}
+
+.apply-to-ccr-btn {
+  font-size: 0.85rem;
+  padding: 4px 12px;
+  min-width: 0;
+}
+
+/* 按钮占位符样式 */
+.group-button-placeholder {
+  font-size: 0.9rem;
+  color: transparent;
+  font-weight: 500;
+  visibility: hidden;
 }
 
 .group-url:hover {
