@@ -1,24 +1,40 @@
 <script setup lang="ts">
 import { keysApi } from "@/api/keys";
-import type { Group, GroupConfigOption, GroupStatsResponse } from "@/types/models";
+import { settingsApi } from "@/api/settings";
+import ProxyKeysInput from "@/components/common/ProxyKeysInput.vue";
+import type { Group, GroupConfigOption, GroupStatsResponse, UpstreamInfo } from "@/types/models";
 import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
-import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
+import { Add, Close, CopyOutline, EyeOffOutline, EyeOutline, HelpCircleOutline, Pencil, Refresh, Remove, Trash } from "@vicons/ionicons5";
 import {
   NButton,
   NCard,
+  NCollapse,
+  NCollapseItem,
+  NForm,
+  NFormItem,
+  NGradientText,
+  NGrid,
+  NGridItem,
   NIcon,
   NInput,
+  NInputNumber,
+  NSelect,
+  NStatistic,
+  NSwitch,
   NTabs,
   NTabPane,
+  NTag,
   NTooltip,
   useDialog,
   useMessage,
+  type FormRules,
 } from "naive-ui";
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupCopyModal from "./GroupCopyModal.vue";
+import GroupSettingsForm from "./GroupSettingsForm.vue";
 
 interface Props {
   group: Group | null;
@@ -40,7 +56,7 @@ const stats = ref<GroupStatsResponse | null>(null);
 const loading = ref(false);
 const dialog = useDialog();
 const message = useMessage();
-const showEditModal = ref(false);
+// const showEditModal = ref(false); // 不再需要模态框
 const showCopyModal = ref(false);
 const delLoading = ref(false);
 const confirmInput = ref("");
@@ -251,7 +267,7 @@ function getConfigDescription(key: string): string {
 }
 
 function handleEdit() {
-  showEditModal.value = true;
+  activeTab.value = "settings";
 }
 
 function handleCopy() {
@@ -259,7 +275,7 @@ function handleCopy() {
 }
 
 function handleGroupEdited(newGroup: Group) {
-  showEditModal.value = false;
+  // showEditModal.value = false; // 不再需要模态框
   if (newGroup) {
     emit("refresh", newGroup);
   }
@@ -267,9 +283,18 @@ function handleGroupEdited(newGroup: Group) {
 
 // 处理编辑分组后的更新（带刷新）
 function handleGroupUpdated(newGroup: Group) {
-  showEditModal.value = false;
+  // showEditModal.value = false; // 不再需要模态框
   if (newGroup) {
     emit("refresh", newGroup);
+    // 重新加载当前分组的统计数据
+    loadStats();
+  }
+}
+
+// 处理设置表单的更新
+function handleGroupUpdatedFromSettings(newGroup: Group) {
+  if (newGroup) {
+    emit("updated", newGroup);
     // 重新加载当前分组的统计数据
     loadStats();
   }
@@ -487,7 +512,7 @@ async function saveCodeSnippet() {
 }
 
 function resetPage() {
-  showEditModal.value = false;
+  // showEditModal.value = false; // 不再需要模态框
   showCopyModal.value = false;
   // 重置内联编辑状态
   isEditingDescription.value = false;
@@ -1007,16 +1032,32 @@ async function copyCodeSnippet() {
               </div>
             </div>
           </n-tab-pane>
+
+          <!-- 设置标签页 (索引 3) -->
+          <n-tab-pane name="settings" tab="设置">
+            <div class="settings-content">
+              <div v-if="!group" class="no-group-message">
+                <p>请先选择一个分组</p>
+              </div>
+              <div v-else class="settings-form-container">
+                <group-settings-form
+                  :group="group"
+                  @updated="handleGroupUpdatedFromSettings"
+                />
+              </div>
+            </div>
+          </n-tab-pane>
         </n-tabs>
       </div>
     </n-card>
 
-    <group-form-modal
+    <!-- 模态框已移除，设置功能已集成到tab中 -->
+    <!-- <group-form-modal
       v-model:show="showEditModal"
       :group="group"
       @success="handleGroupEdited"
       @updated="handleGroupUpdated"
-    />
+    /> -->
     <group-copy-modal
       v-model:show="showCopyModal"
       :source-group="group"
@@ -1505,5 +1546,23 @@ async function copyCodeSnippet() {
   color: #dc2626;
   font-style: italic;
   font-size: 0.8rem;
+}
+
+/* 设置页面样式 */
+.settings-content {
+  padding: 0;
+}
+
+.no-group-message {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px 20px;
+  font-size: 0.9rem;
+}
+
+.settings-form-container {
+  padding: 0;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 </style>
