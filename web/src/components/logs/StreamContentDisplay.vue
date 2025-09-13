@@ -26,11 +26,11 @@ watchEffect(() => {
     streamContentExists: !!props.streamContent,
     streamContentFields: props.streamContent
       ? {
-        thinking_chain: props.streamContent.thinking_chain?.length || 0,
-        text_messages: props.streamContent.text_messages?.length || 0,
-        tool_calls: props.streamContent.tool_calls?.length || 0,
-        raw_content: props.streamContent.raw_content?.length || 0,
-      }
+          thinking_chain: props.streamContent.thinking_chain?.length || 0,
+          text_messages: props.streamContent.text_messages?.length || 0,
+          tool_calls: props.streamContent.tool_calls?.length || 0,
+          raw_content: props.streamContent.raw_content?.length || 0,
+        }
       : null,
   });
 });

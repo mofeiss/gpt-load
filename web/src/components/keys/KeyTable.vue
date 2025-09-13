@@ -13,6 +13,9 @@ import {
   EyeOutline,
   RemoveCircleOutline,
   Search,
+  RefreshCircleOutline,
+  RefreshOutline,
+  PauseCircleOutline,
 } from "@vicons/ionicons5";
 import {
   NButton,
@@ -446,6 +449,56 @@ async function copyInvalidKeys() {
   keysApi.exportKeys(props.selectedGroup.id, "invalid");
 }
 
+// 停用所有密钥
+async function disableAllKeys() {
+  if (!props.selectedGroup?.id || isRestoring.value) {
+    return;
+  }
+
+  const d = dialog.warning({
+    title: "停用所有密钥",
+    content: "确定要停用所有密钥吗？",
+    positiveText: "确定",
+    negativeText: "取消",
+    onPositiveClick: async () => {
+      if (!props.selectedGroup?.id) {
+        return;
+      }
+
+      isRestoring.value = true;
+      d.loading = true;
+      try {
+        // 获取所有密钥
+        const allKeysResult = await keysApi.getGroupKeys({
+          group_id: props.selectedGroup.id,
+          page: 1,
+          page_size: 10000,
+          status: "active",
+        });
+
+        // 逐个停用密钥
+        for (const key of allKeysResult.items) {
+          if (!key.is_disabled) {
+            await keysApi.toggleKeyDisableStatus(props.selectedGroup.id, key.key_value, true);
+          }
+        }
+
+        await loadKeys();
+        window.$message.success("所有密钥已停用", {
+          duration: 3000,
+        });
+        // 触发同步操作刷新
+        triggerSyncOperationRefresh(props.selectedGroup.name, "DISABLE_ALL");
+      } catch (_error) {
+        console.error("停用失败");
+      } finally {
+        d.loading = false;
+        isRestoring.value = false;
+      }
+    },
+  });
+}
+
 async function restoreAllInvalid() {
   if (!props.selectedGroup?.id || isRestoring.value) {
     return;
@@ -748,8 +801,24 @@ function cancelEditingRemarks(key: KeyRow) {
           </template>
           删除
         </n-button>
-        <n-button type="info" size="small" @click="restoreAllInvalid()">恢复无效密钥</n-button>
-        <n-button type="warning" size="small" @click="restoreAllDisabled()">恢复暂停密钥</n-button>
+        <n-button type="info" size="small" @click="restoreAllInvalid()">
+          <template #icon>
+            <n-icon :component="RefreshCircleOutline" />
+          </template>
+          恢复无效
+        </n-button>
+        <n-button type="warning" size="small" @click="restoreAllDisabled()">
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+          恢复暂停
+        </n-button>
+        <n-button type="error" size="small" @click="disableAllKeys()">
+          <template #icon>
+            <n-icon :component="PauseCircleOutline" />
+          </template>
+          暂停所有
+        </n-button>
       </div>
       <div class="toolbar-right">
         <n-space :size="12">
