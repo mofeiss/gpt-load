@@ -91,7 +91,23 @@ func (b *BaseChannel) BuildUpstreamURL(originalURL *url.URL, group *models.Group
 
 	finalURL.Path = strings.TrimRight(finalURL.Path, "/") + requestPath
 
-	finalURL.RawQuery = originalURL.RawQuery
+	// 过滤查询参数，移除用于内部控制的 'id' 参数
+	if originalURL.RawQuery != "" {
+		originalValues, err := url.ParseQuery(originalURL.RawQuery)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse query parameters: %w", err)
+		}
+		
+		// 移除 'id' 参数，这是用于密钥选择的内部参数
+		filteredValues := url.Values{}
+		for key, values := range originalValues {
+			if key != "id" {
+				filteredValues[key] = values
+			}
+		}
+		
+		finalURL.RawQuery = filteredValues.Encode()
+	}
 
 	return finalURL.String(), nil
 }

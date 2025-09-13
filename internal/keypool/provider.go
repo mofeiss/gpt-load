@@ -72,6 +72,56 @@ func (p *KeyProvider) SelectKey(groupID uint) (*models.APIKey, error) {
 	return apiKey, nil
 }
 
+// SelectKeyByID 根据指定的密钥ID选择特定的 APIKey，用于单密钥轮询模式。
+func (p *KeyProvider) SelectKeyByID(keyID uint, groupID uint) (*models.APIKey, error) {
+	// 1. Get key details from HASH
+	keyHashKey := fmt.Sprintf("key:%d", keyID)
+	keyDetails, err := p.store.HGetAll(keyHashKey)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, app_errors.NewAPIError(app_errors.ErrNotFound, fmt.Sprintf("Key with ID %d not found", keyID))
+		}
+		return nil, fmt.Errorf("failed to get key details for key ID %d: %w", keyID, err)
+	}
+
+	// 2. Parse key details
+	keyGroupID, err := strconv.ParseUint(keyDetails["group_id"], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse group_id for key %d: %w", keyID, err)
+	}
+
+	// 3. Verify key belongs to the specified group
+	if uint(keyGroupID) != groupID {
+		return nil, app_errors.NewAPIError(app_errors.ErrForbidden, fmt.Sprintf("Key %d does not belong to group %d", keyID, groupID))
+	}
+
+	// 4. Parse other key details
+	failureCount, _ := strconv.ParseInt(keyDetails["failure_count"], 10, 64)
+	createdAt, _ := strconv.ParseInt(keyDetails["created_at"], 10, 64)
+	isDisabled, _ := strconv.ParseBool(keyDetails["is_disabled"])
+
+	apiKey := &models.APIKey{
+		ID:           keyID,
+		KeyValue:     keyDetails["key_string"],
+		Status:       keyDetails["status"],
+		FailureCount: failureCount,
+		GroupID:      groupID,
+		CreatedAt:    time.Unix(createdAt, 0),
+		IsDisabled:   isDisabled,
+	}
+
+	// 5. Verify key is available for use
+	if apiKey.Status != models.KeyStatusActive {
+		return nil, app_errors.NewAPIError(app_errors.ErrKeyUnavailable, fmt.Sprintf("Key %d is not active (status: %s)", keyID, apiKey.Status))
+	}
+
+	if apiKey.IsDisabled {
+		return nil, app_errors.NewAPIError(app_errors.ErrKeyUnavailable, fmt.Sprintf("Key %d is manually disabled", keyID))
+	}
+
+	return apiKey, nil
+}
+
 // UpdateStatus 异步地提交一个 Key 状态更新任务。
 func (p *KeyProvider) UpdateStatus(apiKey *models.APIKey, group *models.Group, isSuccess bool, errorMessage string) {
 	go func() {

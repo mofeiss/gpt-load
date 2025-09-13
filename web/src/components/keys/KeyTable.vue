@@ -16,6 +16,7 @@ import {
   RefreshCircleOutline,
   RefreshOutline,
   PauseCircleOutline,
+  LinkOutline,
 } from "@vicons/ionicons5";
 import {
   NButton,
@@ -256,6 +257,29 @@ async function copyKey(key: KeyRow) {
   const success = await copy(key.key_value);
   if (success) {
     window.$message.success("密钥已复制到剪贴板", {
+      duration: 3000,
+    });
+  } else {
+    window.$message.error("复制失败", {
+      duration: 3000,
+    });
+  }
+}
+
+async function copyKeyURL(key: KeyRow) {
+  if (!props.selectedGroup?.name) {
+    window.$message.error("分组信息不可用", {
+      duration: 3000,
+    });
+    return;
+  }
+  
+  const baseUrl = window.location.origin;
+  const proxyUrl = `${baseUrl}/proxy/${props.selectedGroup.name}?id=${key.id}`;
+  
+  const success = await copy(proxyUrl);
+  if (success) {
+    window.$message.success("代理URL已复制到剪贴板", {
       duration: 3000,
     });
   } else {
@@ -928,9 +952,14 @@ function cancelEditingRemarks(key: KeyRow) {
                     <n-icon :component="key.is_visible ? EyeOffOutline : EyeOutline" />
                   </template>
                 </n-button>
-                <n-button size="tiny" text @click="copyKey(key)" title="复制">
+                <n-button size="tiny" text @click="copyKey(key)" title="复制密钥">
                   <template #icon>
                     <n-icon :component="CopyOutline" />
+                  </template>
+                </n-button>
+                <n-button size="tiny" text @click="copyKeyURL(key)" title="复制URL">
+                  <template #icon>
+                    <n-icon :component="LinkOutline" />
                   </template>
                 </n-button>
               </div>

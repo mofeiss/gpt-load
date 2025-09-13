@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"gpt-load/internal/channel"
@@ -83,7 +84,15 @@ func (ps *ProxyServer) HandleProxy(c *gin.Context) {
 
 	isStream := channelHandler.IsStreamRequest(c, bodyBytes)
 
-	ps.executeRequestWithRetry(c, channelHandler, group, finalBodyBytes, isStream, startTime, 0)
+	// 检查是否指定了特定的密钥ID
+	keyIDParam := c.Query("id")
+	if keyIDParam != "" {
+		// 单密钥模式
+		ps.executeRequestWithSpecificKey(c, channelHandler, group, finalBodyBytes, isStream, startTime, keyIDParam, 0)
+	} else {
+		// 轮询模式
+		ps.executeRequestWithRetry(c, channelHandler, group, finalBodyBytes, isStream, startTime, 0)
+	}
 }
 
 // executeRequestWithRetry is the core recursive function for handling requests and retries.
@@ -250,6 +259,188 @@ func (ps *ProxyServer) executeRequestWithRetry(
 	logrus.Debugf("【插桩日志】准备记录请求日志，响应体长度: %d, 流式内容: %v", len(responseBody), streamContent != nil)
 	ps.logRequestWithStreamContent(c, group, apiKey, startTime, resp.StatusCode, nil, isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal, responseBody, streamContent)
 	logrus.Debugf("【插桩日志】请求日志记录完成")
+}
+
+// executeRequestWithSpecificKey 使用指定的密钥ID执行请求，支持重试但始终使用同一个密钥。
+func (ps *ProxyServer) executeRequestWithSpecificKey(
+	c *gin.Context,
+	channelHandler channel.ChannelProxy,
+	group *models.Group,
+	bodyBytes []byte,
+	isStream bool,
+	startTime time.Time,
+	keyIDParam string,
+	retryCount int,
+) {
+	cfg := group.EffectiveConfig
+
+	// 解析密钥ID
+	keyID, err := strconv.ParseUint(keyIDParam, 10, 64)
+	if err != nil {
+		logrus.Errorf("Invalid key ID '%s': %v", keyIDParam, err)
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrBadRequest, fmt.Sprintf("Invalid key ID: %s", keyIDParam)))
+		ps.logRequest(c, group, nil, startTime, http.StatusBadRequest, err, isStream, "", channelHandler, bodyBytes, models.RequestTypeFinal, "")
+		return
+	}
+
+	// 获取指定的密钥
+	apiKey, err := ps.keyProvider.SelectKeyByID(uint(keyID), group.ID)
+	if err != nil {
+		logrus.Errorf("Failed to select key with ID %d for group %s on attempt %d: %v", keyID, group.Name, retryCount+1, err)
+		// 检查错误类型并适当处理
+		if apiErr, ok := err.(*app_errors.APIError); ok {
+			response.Error(c, apiErr)
+		} else {
+			response.Error(c, app_errors.NewAPIError(app_errors.ErrInternalServer, err.Error()))
+		}
+		ps.logRequest(c, group, nil, startTime, http.StatusServiceUnavailable, err, isStream, "", channelHandler, bodyBytes, models.RequestTypeFinal, "")
+		return
+	}
+
+	upstreamURL, err := channelHandler.BuildUpstreamURL(c.Request.URL, group)
+	if err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInternalServer, fmt.Sprintf("Failed to build upstream URL: %v", err)))
+		return
+	}
+
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if isStream {
+		ctx, cancel = context.WithCancel(c.Request.Context())
+	} else {
+		timeout := time.Duration(cfg.RequestTimeout) * time.Second
+		ctx, cancel = context.WithTimeout(c.Request.Context(), timeout)
+	}
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, c.Request.Method, upstreamURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		logrus.Errorf("Failed to create upstream request: %v", err)
+		response.Error(c, app_errors.ErrInternalServer)
+		return
+	}
+	req.ContentLength = int64(len(bodyBytes))
+
+	req.Header = c.Request.Header.Clone()
+
+	// Clean up client auth key
+	req.Header.Del("Authorization")
+	req.Header.Del("X-Api-Key")
+	req.Header.Del("X-Goog-Api-Key")
+
+	channelHandler.ModifyRequest(req, apiKey, group)
+
+	// Apply custom header rules after channel-specific modifications
+	if len(group.HeaderRuleList) > 0 {
+		headerCtx := utils.NewHeaderVariableContextFromGin(c, group, apiKey)
+		utils.ApplyHeaderRules(req, group.HeaderRuleList, headerCtx)
+	}
+
+	var client *http.Client
+	if isStream {
+		client = channelHandler.GetStreamClient()
+		req.Header.Set("X-Accel-Buffering", "no")
+	} else {
+		client = channelHandler.GetHTTPClient()
+	}
+
+	resp, err := client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+
+	// Unified error handling for retries. Exclude 404 from being a retryable error.
+	if err != nil || (resp != nil && resp.StatusCode >= 400 && resp.StatusCode != http.StatusNotFound) {
+		if err != nil && app_errors.IsIgnorableError(err) {
+			logrus.Debugf("Client-side ignorable error for key %s, aborting retries: %v", utils.MaskAPIKey(apiKey.KeyValue), err)
+			ps.logRequest(c, group, apiKey, startTime, 499, err, isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal, "")
+			return
+		}
+
+		var statusCode int
+		var errorMessage string
+		var parsedError string
+
+		if err != nil {
+			statusCode = 500
+			errorMessage = err.Error()
+			parsedError = errorMessage
+			logrus.Debugf("Request failed (attempt %d/%d) for specific key %s: %v", retryCount+1, cfg.MaxRetries, utils.MaskAPIKey(apiKey.KeyValue), err)
+		} else {
+			// HTTP-level error (status >= 400)
+			statusCode = resp.StatusCode
+			errorBody, readErr := io.ReadAll(resp.Body)
+			if readErr != nil {
+				logrus.Errorf("Failed to read error body: %v", readErr)
+				errorBody = []byte("Failed to read error body")
+			}
+
+			errorBody = handleGzipCompression(resp, errorBody)
+			errorMessage = string(errorBody)
+			parsedError = app_errors.ParseUpstreamError(errorBody)
+			logrus.Debugf("Request failed with status %d (attempt %d/%d) for specific key %s. Parsed Error: %s", statusCode, retryCount+1, cfg.MaxRetries, utils.MaskAPIKey(apiKey.KeyValue), parsedError)
+		}
+
+		// 使用解析后的错误信息更新密钥状态
+		ps.keyProvider.UpdateStatus(apiKey, group, false, parsedError)
+
+		// 判断是否为最后一次尝试
+		isLastAttempt := retryCount >= cfg.MaxRetries
+		requestType := models.RequestTypeRetry
+		if isLastAttempt {
+			requestType = models.RequestTypeFinal
+		}
+
+		ps.logRequest(c, group, apiKey, startTime, statusCode, errors.New(parsedError), isStream, upstreamURL, channelHandler, bodyBytes, requestType, "")
+
+		// 如果是最后一次尝试，直接返回错误，不再递归
+		if isLastAttempt {
+			var errorJSON map[string]any
+			if err := json.Unmarshal([]byte(errorMessage), &errorJSON); err == nil {
+				c.JSON(statusCode, errorJSON)
+			} else {
+				response.Error(c, app_errors.NewAPIErrorWithUpstream(statusCode, "UPSTREAM_ERROR", errorMessage))
+			}
+			return
+		}
+
+		// 添加重试间隔等待
+		if cfg.RetryIntervalMs > 0 {
+			logrus.Debugf("Waiting %d ms before retry attempt %d for specific key", cfg.RetryIntervalMs, retryCount+2)
+			time.Sleep(time.Duration(cfg.RetryIntervalMs) * time.Millisecond)
+		}
+
+		ps.executeRequestWithSpecificKey(c, channelHandler, group, bodyBytes, isStream, startTime, keyIDParam, retryCount+1)
+		return
+	}
+
+	// ps.keyProvider.UpdateStatus(apiKey, group, true) // 请求成功不再重置成功次数，减少IO消耗
+	logrus.Debugf("Request for group %s succeeded on attempt %d with specific key %s", group.Name, retryCount+1, utils.MaskAPIKey(apiKey.KeyValue))
+
+	for key, values := range resp.Header {
+		for _, value := range values {
+			c.Header(key, value)
+		}
+	}
+	c.Status(resp.StatusCode)
+
+	logrus.Debugf("【插桩日志】开始处理响应体，流式请求: %v, 组: %s, 特定密钥模式", isStream, group.Name)
+	
+	var responseBody string
+	var streamContent *models.StreamContent
+	if isStream {
+		logrus.Debugf("【插桩日志】调用handleStreamingResponse处理流式响应（特定密钥模式）")
+		responseBody, streamContent = ps.handleStreamingResponse(c, resp, group)
+		logrus.Debugf("【插桩日志】handleStreamingResponse完成，响应体长度: %d", len(responseBody))
+	} else {
+		logrus.Debugf("【插桩日志】调用handleNormalResponse处理普通响应（特定密钥模式）")
+		responseBody, _ = ps.handleNormalResponse(c, resp, group)
+		logrus.Debugf("【插桩日志】handleNormalResponse完成，响应体长度: %d", len(responseBody))
+	}
+
+	logrus.Debugf("【插桩日志】准备记录请求日志，响应体长度: %d, 流式内容: %v, 特定密钥模式", len(responseBody), streamContent != nil)
+	ps.logRequestWithStreamContent(c, group, apiKey, startTime, resp.StatusCode, nil, isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal, responseBody, streamContent)
+	logrus.Debugf("【插桩日志】请求日志记录完成（特定密钥模式）")
 }
 
 // logRequest is a helper function to create and record a request log.
