@@ -136,7 +136,7 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
   try {
     await keysApi.updateGroupsOrder(payload);
     message.success("分组排序已保存");
-  } catch (error) {
+  } catch (_error) {
     message.error("保存分组排序失败，请重试");
     // 如果失败，重新加载以恢复到之前的状态
     await loadGroups();

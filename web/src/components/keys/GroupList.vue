@@ -51,7 +51,9 @@ watch(
       newGroups.map(g => ({ id: g.id, name: g.name, archived: g.archived }))
     );
     const filtered = newGroups.filter(group => {
-      if (!searchText.value) return true;
+      if (!searchText.value) {
+        return true;
+      }
       const search = searchText.value.toLowerCase();
       return (
         group.name.toLowerCase().includes(search) ||
@@ -67,7 +69,9 @@ watch(
 // Watch for search text changes to update local state
 watch(searchText, () => {
   const filtered = props.groups.filter(group => {
-    if (!searchText.value) return true;
+    if (!searchText.value) {
+      return true;
+    }
     const search = searchText.value.toLowerCase();
     return (
       group.name.toLowerCase().includes(search) ||
@@ -229,7 +233,7 @@ function handleGroupCreated(group: Group) {
         <n-spin :show="loading" size="small">
           <!-- 常驻分组容器 -->
           <div class="active-groups-container">
-            <VueDraggableNext
+            <vue-draggable-next
               v-model="localActiveGroups"
               class="groups-list"
               group="groups"
@@ -262,7 +266,7 @@ function handleGroupCreated(group: Group) {
                   </div>
                 </div>
               </div>
-            </VueDraggableNext>
+            </vue-draggable-next>
             <n-empty
               v-if="localActiveGroups.length === 0 && !loading"
               size="small"
@@ -283,7 +287,7 @@ function handleGroupCreated(group: Group) {
                     <span class="archived-title">归档分组 ({{ localArchivedGroups.length }})</span>
                   </div>
                 </template>
-                <VueDraggableNext
+                <vue-draggable-next
                   v-model="localArchivedGroups"
                   class="archived-list"
                   group="groups"
@@ -315,7 +319,7 @@ function handleGroupCreated(group: Group) {
                       </div>
                     </div>
                   </div>
-                </VueDraggableNext>
+                </vue-draggable-next>
               </n-collapse-item>
             </n-collapse>
           </div>

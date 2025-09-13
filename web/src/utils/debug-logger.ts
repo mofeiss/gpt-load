@@ -26,7 +26,7 @@ export function log(message: string, data?: any) {
     try {
       // 美化JSON输出
       fullLogEntry += `\n${JSON.stringify(data, null, 2)}`;
-    } catch (e) {
+    } catch (_e) {
       fullLogEntry += `\n[Unserializable data]`;
     }
   }
