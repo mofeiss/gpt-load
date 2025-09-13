@@ -74,7 +74,7 @@ onMounted(() => {
   width: 100%;
   height: calc(100vh - 81px); /* 减去导航栏高度和顶部间距 */
   background: white;
-  border-radius: var(--border-radius-lg);
+  border-radius: 6px;
   overflow: hidden; /* 确保 iframe 内容遵循圆角 */
 }
 
@@ -83,7 +83,7 @@ onMounted(() => {
   height: 100%;
   border: none;
   display: block;
-  border-radius: var(--border-radius-lg);
+  border-radius: 6px;
 }
 
 .loading-container {

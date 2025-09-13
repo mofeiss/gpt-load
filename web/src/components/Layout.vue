@@ -237,7 +237,7 @@ const toggleMenu = () => {
 }
 
 .fullscreen-content {
-  padding: 16px 0 0 0; /* 只添加顶部间距，与其他页面保持一致 */
+  padding: 16px; /* 与其他页面保持一致的padding */
   height: calc(100vh - 65px); /* 减去顶部导航栏高度 */
   position: relative;
 }

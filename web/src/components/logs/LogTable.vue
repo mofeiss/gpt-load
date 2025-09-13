@@ -944,7 +944,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
 }
 .toolbar {
   background: white;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 16px;
   border-bottom: 1px solid #f0f0f0;
 }
@@ -1041,7 +1041,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
 
 .table-main {
   background: white;
-  border-radius: 8px;
+  border-radius: 6px;
   overflow: hidden;
 }
 .table-container {
