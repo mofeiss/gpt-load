@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, watchEffect } from "vue";
 import type { StreamContent } from "@/types/models";
 import { copy } from "@/utils/clipboard";
 import { CopyOutline } from "@vicons/ionicons5";
@@ -12,19 +13,26 @@ interface Props {
 const props = defineProps<Props>();
 const message = useMessage();
 
+// 检测是否为 Anthropic 协议格式
+const isAnthropicFormat = computed(() => {
+  return props.rawContent && props.rawContent.includes('"id":"msg_');
+});
+
 // 调试插桩
-console.log("【前端插桩】StreamContentDisplay 接收到的数据:", {
-  streamContent: props.streamContent,
-  rawContent: props.rawContent ? `长度: ${props.rawContent.length}` : "无数据",
-  streamContentExists: !!props.streamContent,
-  streamContentFields: props.streamContent
-    ? {
+watchEffect(() => {
+  console.log("【前端插桩】StreamContentDisplay 接收到的数据:", {
+    streamContent: props.streamContent,
+    rawContent: props.rawContent ? `长度: ${props.rawContent.length}` : "无数据",
+    streamContentExists: !!props.streamContent,
+    streamContentFields: props.streamContent
+      ? {
         thinking_chain: props.streamContent.thinking_chain?.length || 0,
         text_messages: props.streamContent.text_messages?.length || 0,
         tool_calls: props.streamContent.tool_calls?.length || 0,
         raw_content: props.streamContent.raw_content?.length || 0,
       }
-    : null,
+      : null,
+  });
 });
 
 // 复制功能
@@ -65,7 +73,24 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
   </div> -->
 
   <div v-if="props.streamContent || props.rawContent" class="stream-display">
-    <n-grid :cols="2" :x-gap="12">
+    <!-- Anthropic 格式：只显示原文内容 -->
+    <div v-if="isAnthropicFormat" class="anthropic-single-display">
+      <n-card title="原文内容" size="small" class="raw-content-card">
+        <template #header-extra>
+          <n-button size="tiny" text @click="copyContent(props.rawContent, '原文内容')">
+            <template #icon>
+              <n-icon :component="CopyOutline" />
+            </template>
+          </n-button>
+        </template>
+        <div class="content-display raw-content">
+          {{ props.rawContent }}
+        </div>
+      </n-card>
+    </div>
+
+    <!-- 其他格式：显示双列布局 -->
+    <n-grid v-else :cols="2" :x-gap="12">
       <!-- 左侧：原文内容 -->
       <n-grid-item>
         <n-card title="原文内容" size="small" class="raw-content-card">
@@ -115,6 +140,10 @@ const formatStreamContentAsMarkdown = (content: StreamContent) => {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+.anthropic-single-display {
+  width: 100%;
 }
 
 .raw-content-card,
