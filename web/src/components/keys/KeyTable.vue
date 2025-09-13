@@ -67,6 +67,7 @@ const moreOptions = [
   { label: "导出无效密钥", key: "copyInvalid" },
   { type: "divider" },
   { label: "恢复所有无效密钥", key: "restoreAll" },
+  { label: "恢复所有暂停密钥", key: "restoreAllDisabled" },
   { label: "清空所有无效密钥", key: "clearInvalid", props: { style: { color: "#d03050" } } },
   {
     label: "清空所有密钥",
@@ -159,6 +160,9 @@ function handleMoreAction(key: string) {
       break;
     case "restoreAll":
       restoreAllInvalid();
+      break;
+    case "restoreAllDisabled":
+      restoreAllDisabled();
       break;
     case "validateAll":
       validateKeys("all");
@@ -447,6 +451,38 @@ async function restoreAllInvalid() {
   });
 }
 
+async function restoreAllDisabled() {
+  if (!props.selectedGroup?.id || isRestoring.value) {
+    return;
+  }
+
+  const d = dialog.warning({
+    title: "恢复密钥",
+    content: "确定要恢复所有用户手动暂停的密钥吗？",
+    positiveText: "确定",
+    negativeText: "取消",
+    onPositiveClick: async () => {
+      if (!props.selectedGroup?.id) {
+        return;
+      }
+
+      isRestoring.value = true;
+      d.loading = true;
+      try {
+        await keysApi.restoreAllDisabledKeys(props.selectedGroup.id);
+        await loadKeys();
+        // 触发同步操作刷新
+        triggerSyncOperationRefresh(props.selectedGroup.name, "RESTORE_ALL_DISABLED");
+      } catch (_error) {
+        console.error("恢复暂停密钥失败");
+      } finally {
+        d.loading = false;
+        isRestoring.value = false;
+      }
+    },
+  });
+}
+
 async function validateKeys(status: "all" | "active" | "invalid") {
   if (!props.selectedGroup?.id || testingMsg) {
     return;
@@ -670,14 +706,16 @@ function cancelEditingRemarks(key: KeyRow) {
           <template #icon>
             <n-icon :component="AddCircleOutline" />
           </template>
-          添加密钥
+          增加
         </n-button>
         <n-button type="error" size="small" @click="deleteDialogShow = true">
           <template #icon>
             <n-icon :component="RemoveCircleOutline" />
           </template>
-          删除密钥
+          删除
         </n-button>
+        <n-button type="info" size="small" @click="restoreAllInvalid()">恢复无效密钥</n-button>
+        <n-button type="warning" size="small" @click="restoreAllDisabled()">恢复暂停密钥</n-button>
       </div>
       <div class="toolbar-right">
         <n-space :size="12">

@@ -182,6 +182,11 @@ export const keysApi = {
     return http.post("/keys/restore-all-invalid", { group_id });
   },
 
+  // 恢复所有暂停密钥
+  restoreAllDisabledKeys(group_id: number): Promise<void> {
+    return http.post("/keys/restore-all-disabled", { group_id });
+  },
+
   // 清空所有无效密钥
   clearAllInvalidKeys(group_id: number): Promise<{ data: { message: string } }> {
     return http.post(

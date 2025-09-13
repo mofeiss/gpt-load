@@ -238,6 +238,11 @@ func (s *KeyService) RestoreAllInvalidKeys(groupID uint) (int64, error) {
 	return s.KeyProvider.RestoreKeys(groupID)
 }
 
+// RestoreAllDisabledKeys sets the is_disabled field of all manually disabled keys in a group to false.
+func (s *KeyService) RestoreAllDisabledKeys(groupID uint) (int64, error) {
+	return s.KeyProvider.RestoreDisabledKeys(groupID)
+}
+
 // ClearAllInvalidKeys deletes all 'inactive' keys from a group.
 func (s *KeyService) ClearAllInvalidKeys(groupID uint) (int64, error) {
 	return s.KeyProvider.RemoveInvalidKeys(groupID)

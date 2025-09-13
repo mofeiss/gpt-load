@@ -398,6 +398,42 @@ func (p *KeyProvider) RestoreKeys(groupID uint) (int64, error) {
 	return restoredCount, err
 }
 
+// RestoreDisabledKeys 恢复组内所有手动暂停的 Key。
+func (p *KeyProvider) RestoreDisabledKeys(groupID uint) (int64, error) {
+	var disabledKeys []models.APIKey
+	var restoredCount int64
+
+	err := p.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("group_id = ? AND is_disabled = ?", groupID, true).Find(&disabledKeys).Error; err != nil {
+			return err
+		}
+
+		if len(disabledKeys) == 0 {
+			return nil
+		}
+
+		updates := map[string]any{
+			"is_disabled": false,
+		}
+		result := tx.Model(&models.APIKey{}).Where("group_id = ? AND is_disabled = ?", groupID, true).Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		restoredCount = result.RowsAffected
+
+		for _, key := range disabledKeys {
+			key.IsDisabled = false
+			if err := p.addKeyToStore(&key); err != nil {
+				logrus.WithFields(logrus.Fields{"keyID": key.ID, "error": err}).Error("Failed to restore disabled key in store after DB update, rolling back transaction")
+				return err
+			}
+		}
+		return nil
+	})
+
+	return restoredCount, err
+}
+
 // RestoreMultipleKeys 恢复指定的 Key。
 func (p *KeyProvider) RestoreMultipleKeys(groupID uint, keyValues []string) (int64, error) {
 	if len(keyValues) == 0 {
