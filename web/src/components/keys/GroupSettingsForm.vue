@@ -8,7 +8,6 @@ import {
   NButton,
   NCollapse,
   NCollapseItem,
-  NDynamicTags,
   NForm,
   NFormItem,
   NIcon,
@@ -72,7 +71,6 @@ interface GroupFormData {
   blacklist_threshold: number | null;
   force_http11?: boolean;
   code_snippet: string;
-  ccr_models: string[];
 }
 
 // 表单数据
@@ -97,7 +95,6 @@ const formData = reactive<GroupFormData>({
   proxy_keys: "",
   blacklist_threshold: null,
   code_snippet: "",
-  ccr_models: [],
 });
 
 const channelTypeOptions = ref<{ label: string; value: string }[]>([]);
@@ -304,7 +301,6 @@ function loadGroupData() {
     blacklist_threshold: blacklistThreshold,
     force_http11: props.group.force_http11 ?? false,
     code_snippet: props.group.code_snippet || "",
-    ccr_models: props.group.ccr_models || [],
   });
 }
 
@@ -477,7 +473,6 @@ async function handleSubmit() {
       proxy_keys: formData.proxy_keys,
       force_http11: formData.force_http11,
       code_snippet: formData.code_snippet,
-      ccr_models: formData.ccr_models,
     };
 
     const res = await keysApi.updateGroup(props.group.id, submitData);
@@ -663,33 +658,6 @@ async function handleSubmit() {
             :placeholder="`全局设定：${globalBlacklistThreshold}`"
             clearable
             style="width: 200px"
-          />
-        </n-form-item>
-
-        <!-- CCR 模型 -->
-        <n-form-item label="ccr 模型">
-          <template #label>
-            <div class="form-label-with-tooltip">
-              ccr 模型
-              <n-tooltip trigger="hover" placement="top">
-                <template #trigger>
-                  <n-icon :component="HelpCircleOutline" class="help-icon" />
-                </template>
-                <div>
-                  配置该分组支持的 CCR 模型列表。按回车键添加模型，点击标签右侧的 × 可删除。
-                  <br />
-                  • 这些模型将显示在分组信息卡片和密钥列表之间
-                  <br />
-                  • 点击模型标签可复制"分组名,模型名"到剪贴板
-                </div>
-              </n-tooltip>
-            </div>
-          </template>
-          <n-dynamic-tags
-            v-model:value="formData.ccr_models"
-            placeholder="输入模型名称后按回车"
-            :max="20"
-            size="medium"
           />
         </n-form-item>
 

@@ -336,6 +336,7 @@ type GroupUpdateRequest struct {
 	HeaderRules        []models.HeaderRule `json:"header_rules"`
 	ProxyKeys          *string             `json:"proxy_keys,omitempty"`
 	ForceHTTP11        *bool               `json:"force_http11,omitempty"`
+	CCRModels          []string            `json:"ccr_models,omitempty"`
 }
 
 // UpdateGroup handles updating an existing group.
@@ -386,6 +387,14 @@ func (s *Server) UpdateGroup(c *gin.Context) {
 
 	if req.CodeSnippet != nil {
 		group.CodeSnippet = strings.TrimSpace(*req.CodeSnippet)
+	}
+
+	// Handle CCR models update
+	if req.CCRModels != nil {
+		if err := s.handleCCRModelsUpdate(&group, req.CCRModels); err != nil {
+			response.Error(c, app_errors.NewAPIError(app_errors.ErrValidation, err.Error()))
+			return
+		}
 	}
 
 	if req.Upstreams != nil {
@@ -572,6 +581,7 @@ type GroupResponse struct {
 	DisplayName        string              `json:"display_name"`
 	Description        string              `json:"description"`
 	CodeSnippet        string              `json:"code_snippet"`
+	CCRModels          []string            `json:"ccr_models"`
 	Upstreams          datatypes.JSON      `json:"upstreams"`
 	ChannelType        string              `json:"channel_type"`
 	Sort               int                 `json:"sort"`
@@ -629,6 +639,7 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 		DisplayName:        group.DisplayName,
 		Description:        group.Description,
 		CodeSnippet:        group.CodeSnippet,
+		CCRModels:          parseCCRModelsFromCodeSnippet(group.CodeSnippet),
 		Upstreams:          group.Upstreams,
 		ChannelType:        group.ChannelType,
 		Sort:               group.Sort,
@@ -1234,4 +1245,235 @@ func (s *Server) UnarchiveGroup(c *gin.Context) {
 	}
 
 	response.Success(c, s.newGroupResponse(&group))
+}
+
+// CodeSnippetStructure defines the structure for the code snippet JSON
+type CodeSnippetStructure struct {
+	Name       string                 `json:"name"`
+	APIBaseURL string                 `json:"api_base_url"`
+	APIKey     string                 `json:"api_key"`
+	Models     []string               `json:"models"`
+	Transformer map[string]interface{} `json:"transformer,omitempty"`
+}
+
+// handleCCRModelsUpdate handles the update of CCR models by updating the code_snippet field
+func (s *Server) handleCCRModelsUpdate(group *models.Group, ccrModels []string) error {
+	// If no new CCR models provided, nothing to do
+	if len(ccrModels) == 0 {
+		return nil
+	}
+
+	var snippetObj CodeSnippetStructure
+
+	// If code_snippet is not empty, try to parse it
+	if group.CodeSnippet != "" {
+		if err := json.Unmarshal([]byte(group.CodeSnippet), &snippetObj); err != nil {
+			// If parsing fails and we have new tags to add, return error
+			return fmt.Errorf("代码片段不是 json 规范, 无法添加 tag")
+		}
+	} else {
+		// Create default structure based on channel type
+		snippetObj = s.createDefaultCodeSnippet(group, ccrModels)
+	}
+
+	// Ensure models array exists and merge with new CCR models
+	if snippetObj.Models == nil {
+		snippetObj.Models = []string{}
+	}
+
+	// Create a map for deduplication
+	modelMap := make(map[string]bool)
+	for _, model := range snippetObj.Models {
+		modelMap[model] = true
+	}
+
+	// Add new models (deduplicated)
+	for _, model := range ccrModels {
+		if model != "" && !modelMap[model] {
+			snippetObj.Models = append(snippetObj.Models, model)
+			modelMap[model] = true
+		}
+	}
+
+	// Convert back to JSON string with formatting
+	updatedJSON, err := json.MarshalIndent(snippetObj, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated code snippet: %v", err)
+	}
+
+	// Update the group's code snippet
+	group.CodeSnippet = string(updatedJSON)
+
+	return nil
+}
+
+// createDefaultCodeSnippet creates a default code snippet structure based on channel type
+func (s *Server) createDefaultCodeSnippet(group *models.Group, ccrModels []string) CodeSnippetStructure {
+	snippet := CodeSnippetStructure{
+		Models:      ccrModels,
+	}
+
+	// 获取代理密钥（优先使用分组代理密钥，否则使用全局代理密钥）
+	apiKey := s.getProxyKey(group)
+
+	switch group.ChannelType {
+	case "anthropic":
+		snippet.Name = group.Name
+		snippet.APIBaseURL = fmt.Sprintf("http://localhost:3001/proxy/%s/v1/messages?beta=true", group.Name)
+		snippet.APIKey = apiKey
+		snippet.Transformer = map[string]interface{}{
+			"use": []string{"Anthropic"},
+		}
+	case "openai":
+		snippet.Name = group.Name
+		snippet.APIBaseURL = fmt.Sprintf("http://localhost:3001/proxy/%s/v1/chat/completions", group.Name)
+		snippet.APIKey = apiKey
+		snippet.Transformer = s.createOpenAITransformer(ccrModels)
+	case "gemini":
+		snippet.Name = group.Name
+		snippet.APIBaseURL = fmt.Sprintf("http://localhost:3001/proxy/%s/v1beta/models/", group.Name)
+		snippet.APIKey = apiKey
+		snippet.Transformer = map[string]interface{}{
+			"use": []string{"gemini"},
+		}
+	default:
+		snippet.Name = group.Name
+		snippet.APIBaseURL = fmt.Sprintf("http://localhost:3001/proxy/%s/v1/chat/completions", group.Name)
+		snippet.APIKey = apiKey
+	}
+
+	return snippet
+}
+
+// getProxyKey gets the proxy key for the group (group proxy key first, then global proxy key)
+func (s *Server) getProxyKey(group *models.Group) string {
+	// 首先尝试获取分组的代理密钥
+	if group.ProxyKeys != "" {
+		keys := utils.SplitAndTrim(group.ProxyKeys, ",")
+		if len(keys) > 0 {
+			return keys[0]
+		}
+	}
+
+	// 如果分组没有代理密钥，则直接从 SettingsManager 获取全局设置
+	globalSettings := s.SettingsManager.GetSettings()
+	if globalSettings.ProxyKeys != "" {
+		keys := utils.SplitAndTrim(globalSettings.ProxyKeys, ",")
+		if len(keys) > 0 {
+			return keys[0]
+		}
+	}
+
+
+	// 如果都没有，返回默认值
+	return "your-api-key-here"
+}
+
+// createOpenAITransformer creates the transformer configuration for OpenAI channel type
+func (s *Server) createOpenAITransformer(ccrModels []string) map[string]interface{} {
+	transformer := map[string]interface{}{
+		"use": []interface{}{
+			[]interface{}{
+				"maxtoken",
+				map[string]interface{}{
+					"max_tokens": 65535,
+				},
+			},
+		},
+	}
+
+	// 为每个模型添加 reasoning 配置
+	for _, model := range ccrModels {
+		if model != "" {
+			transformer[model] = map[string]interface{}{
+				"use": []string{"reasoning"},
+			}
+		}
+	}
+
+	return transformer
+}
+
+// parseCCRModelsFromCodeSnippet extracts CCR models from code_snippet field
+func parseCCRModelsFromCodeSnippet(codeSnippet string) []string {
+	if codeSnippet == "" {
+		return []string{}
+	}
+
+	var snippetObj CodeSnippetStructure
+	if err := json.Unmarshal([]byte(codeSnippet), &snippetObj); err != nil {
+		// If parsing fails, return empty array
+		return []string{}
+	}
+
+	if snippetObj.Models == nil {
+		return []string{}
+	}
+
+	return snippetObj.Models
+}
+
+// UpdateGroupCCRModelsRequest defines the request body for updating CCR models.
+type UpdateGroupCCRModelsRequest struct {
+	Models string `json:"models"`
+}
+
+// UpdateGroupCCRModels handles the dedicated CCR model update request.
+func (s *Server) UpdateGroupCCRModels(c *gin.Context) {
+	groupID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrBadRequest, "Invalid group ID format"))
+		return
+	}
+
+	var req UpdateGroupCCRModelsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInvalidJSON, err.Error()))
+		return
+	}
+
+	var group models.Group
+	if err := s.DB.First(&group, groupID).Error; err != nil {
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	newModels := utils.SplitAndTrim(req.Models, ",")
+
+	if err := s.replaceCCRModelsInCodeSnippet(&group, newModels); err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInternalServer, err.Error()))
+		return
+	}
+
+	if err := s.DB.Save(&group).Error; err != nil {
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrInternalServer, err.Error()))
+		return
+	}
+
+	response.Success(c, nil)
+}
+
+// replaceCCRModelsInCodeSnippet handles the logic of replacing models in code_snippet.
+func (s *Server) replaceCCRModelsInCodeSnippet(group *models.Group, newModels []string) error {
+	var snippetObj CodeSnippetStructure // Reuse the existing struct
+
+	if group.CodeSnippet != "" {
+		if err := json.Unmarshal([]byte(group.CodeSnippet), &snippetObj); err != nil {
+			return fmt.Errorf("代码片段不是有效的 JSON, 无法更新模型")
+		}
+	} else {
+		// If code snippet is empty, create a default structure
+		snippetObj = s.createDefaultCodeSnippet(group, []string{}) // Initial models are empty
+	}
+
+	// **Core Difference: Direct replacement, not merging**
+	snippetObj.Models = newModels
+
+	updatedJSON, err := json.MarshalIndent(snippetObj, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化代码片段失败: %v", err)
+	}
+
+	group.CodeSnippet = string(updatedJSON)
+	return nil
 }

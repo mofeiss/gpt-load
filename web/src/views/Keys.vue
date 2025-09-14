@@ -2,6 +2,7 @@
 import { keysApi } from "@/api/keys";
 
 // 为了符合 kebab-case 命名规范，使用 ccRModelsDisplay 作为组件名
+import CCRSettingsCard from "@/components/keys/CCRSettingsCard.vue";
 import GroupInfoCard from "@/components/keys/GroupInfoCard.vue";
 import GroupList from "@/components/keys/GroupList.vue";
 import KeyTable from "@/components/keys/KeyTable.vue";
@@ -70,8 +71,19 @@ function handleGroupSelect(group: Group | null) {
 }
 
 async function handleGroupRefresh() {
+  const currentGroupId = selectedGroup.value?.id;
   await loadGroups();
-  restoreSelectedGroup();
+  if (currentGroupId) {
+    const refreshedGroup = groups.value.find(g => g.id === currentGroupId);
+    if (refreshedGroup) {
+      selectedGroup.value = refreshedGroup;
+    } else {
+      // The group may have been deleted, so we fall back to restoring selection logic
+      restoreSelectedGroup();
+    }
+  } else {
+    restoreSelectedGroup();
+  }
 }
 
 async function handleGroupRefreshAndSelect(targetGroupId: number) {
@@ -177,9 +189,7 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
       </div>
 
       <!-- CCR 模型显示区域 -->
-      <div class="ccr-models-section">
-        <ccr-models-display :group="selectedGroup" />
-      </div>
+      <c-c-r-settings-card :group="selectedGroup" @refresh="handleGroupRefresh" />
 
       <!-- 密钥表格区域 -->
       <div class="key-table-section">
@@ -210,10 +220,6 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
 }
 
 .group-info {
-  flex-shrink: 0;
-}
-
-.ccr-models-section {
   flex-shrink: 0;
 }
 

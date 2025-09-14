@@ -115,6 +115,7 @@ func registerProtectedAPIRoutes(api *gin.RouterGroup, serverHandler *handler.Ser
 		groups.POST("/:id/copy", serverHandler.CopyGroup)
 		groups.POST("/:id/archive", serverHandler.ArchiveGroup)
 		groups.POST("/:id/unarchive", serverHandler.UnarchiveGroup)
+		groups.POST("/:id/ccr", serverHandler.UpdateGroupCCRModels)
 	}
 
 	// Key Management Routes

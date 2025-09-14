@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import type { Group } from "@/types/models";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName } from "@/utils/display";
-import type { Group } from "@/types/models";
 import { CopyOutline } from "@vicons/ionicons5";
 import { NTag, NTooltip, useMessage } from "naive-ui";
+import { computed } from "vue";
 
 interface Props {
   group: Group | null;
@@ -12,12 +13,17 @@ interface Props {
 const props = defineProps<Props>();
 const message = useMessage();
 
+// 计算属性来获取 CCR 模型列表
+const ccrModels = computed(() => {
+  return props.group?.ccr_models || [];
+});
+
 async function copyModelText(model: string) {
   if (!props.group) {
     return;
   }
 
-  const text = `${props.group.name},${model}`;
+  const text = `/model ${props.group.name},${model}`;
   const success = await copy(text);
 
   if (success) {
@@ -33,9 +39,9 @@ async function copyModelText(model: string) {
 </script>
 
 <template>
-  <div v-if="group?.ccr_models && group.ccr_models.length > 0" class="ccr-models-display">
+  <div v-if="ccrModels.length > 0" class="ccr-models-display">
     <div class="models-container">
-      <n-tooltip v-for="model in group.ccr_models" :key="model" trigger="hover">
+      <n-tooltip v-for="model in ccrModels" :key="model" trigger="hover">
         <template #trigger>
           <n-tag
             :bordered="false"
@@ -51,7 +57,9 @@ async function copyModelText(model: string) {
             {{ model }}
           </n-tag>
         </template>
-        点击复制 "{{ getGroupDisplayName(group) }},{{ model }}"
+        点击复制模型切换命令 "/model {{ props.group ? getGroupDisplayName(props.group) : "" }},{{
+          model
+        }}"
       </n-tooltip>
     </div>
   </div>

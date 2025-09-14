@@ -77,6 +77,11 @@ export const keysApi = {
     return res.data;
   },
 
+  // 更新分组的 CCR 模型
+  updateGroupCCRModels(groupId: number, models: string): Promise<void> {
+    return http.post(`/groups/${groupId}/ccr`, { models });
+  },
+
   // 获取分组列表（简化版）
   async listGroups(): Promise<Group[]> {
     const res = await http.get("/groups/list");
