@@ -16,6 +16,7 @@ import {
   RefreshCircleOutline,
   RefreshOutline,
   PauseCircleOutline,
+  LinkOutline,
 } from "@vicons/ionicons5";
 import {
   NButton,
@@ -256,6 +257,43 @@ async function copyKey(key: KeyRow) {
   const success = await copy(key.key_value);
   if (success) {
     window.$message.success("密钥已复制到剪贴板", {
+      duration: 3000,
+    });
+  } else {
+    window.$message.error("复制失败", {
+      duration: 3000,
+    });
+  }
+}
+
+async function copyKeyUrl(key: KeyRow) {
+  if (!props.selectedGroup?.name) {
+    return;
+  }
+
+  let url = "";
+  const baseUrl = window.location.origin;
+  const groupName = props.selectedGroup.name;
+  const keyId = key.id;
+
+  switch (props.selectedGroup.channel_type) {
+    case "anthropic":
+      url = `${baseUrl}/proxy/${groupName}/id_${keyId}/v1/messages?beta=true`;
+      break;
+    case "openai":
+      url = `${baseUrl}/proxy/${groupName}/id_${keyId}/v1/chat/completions`;
+      break;
+    case "gemini":
+      url = `${baseUrl}/proxy/${groupName}/id_${keyId}/v1beta/models/`;
+      break;
+    default:
+      url = `${baseUrl}/proxy/${groupName}/id_${keyId}/v1/chat/completions`;
+      break;
+  }
+
+  const success = await copy(url);
+  if (success) {
+    window.$message.success("URL已复制到剪贴板", {
       duration: 3000,
     });
   } else {
@@ -931,6 +969,11 @@ function cancelEditingRemarks(key: KeyRow) {
                 <n-button size="tiny" text @click="copyKey(key)" title="复制">
                   <template #icon>
                     <n-icon :component="CopyOutline" />
+                  </template>
+                </n-button>
+                <n-button size="tiny" text @click="copyKeyUrl(key)" title="复制URL">
+                  <template #icon>
+                    <n-icon :component="LinkOutline" />
                   </template>
                 </n-button>
               </div>

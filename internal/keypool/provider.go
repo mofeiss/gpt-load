@@ -691,6 +691,31 @@ func (p *KeyProvider) apiKeyToMap(key *models.APIKey) map[string]any {
 	}
 }
 
+// SelectKeyByID 根据指定的密钥ID获取密钥，验证其是否属于指定分组且可用
+func (p *KeyProvider) SelectKeyByID(groupID uint, keyID uint) (*models.APIKey, error) {
+	// 从数据库中获取密钥详情，确保密钥存在且属于正确的分组
+	var apiKey models.APIKey
+	err := p.db.Where("id = ? AND group_id = ?", keyID, groupID).First(&apiKey).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, app_errors.NewAPIError(app_errors.ErrBadRequest, fmt.Sprintf("Key ID %d not found in group %d", keyID, groupID))
+		}
+		return nil, fmt.Errorf("failed to get key by ID: %w", err)
+	}
+
+	// 检查密钥状态是否可用
+	if apiKey.Status != models.KeyStatusActive {
+		return nil, app_errors.NewAPIError(app_errors.ErrBadRequest, fmt.Sprintf("Key ID %d is not active (status: %s)", keyID, apiKey.Status))
+	}
+
+	// 检查密钥是否被手动禁用
+	if apiKey.IsDisabled {
+		return nil, app_errors.NewAPIError(app_errors.ErrBadRequest, fmt.Sprintf("Key ID %d is disabled", keyID))
+	}
+
+	return &apiKey, nil
+}
+
 // pluckIDs extracts IDs from a slice of APIKey.
 func pluckIDs(keys []models.APIKey) []uint {
 	ids := make([]uint, len(keys))

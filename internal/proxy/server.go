@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"gpt-load/internal/channel"
@@ -54,6 +56,35 @@ func NewProxyServer(
 func (ps *ProxyServer) HandleProxy(c *gin.Context) {
 	startTime := time.Now()
 	groupName := c.Param("group_name")
+	path := c.Param("path")
+
+	// 解析路径，判断是否为单密钥请求
+	var specificKeyID uint
+	var actualPath string
+	isSpecificKey := false
+
+	if strings.HasPrefix(path, "/id_") {
+		// 提取 id_ 后面的数字部分
+		parts := strings.SplitN(path[4:], "/", 2) // 去掉 "/id_" 后分割
+		if len(parts) >= 1 {
+			if keyID, err := strconv.ParseUint(parts[0], 10, 32); err == nil {
+				specificKeyID = uint(keyID)
+				isSpecificKey = true
+				if len(parts) > 1 {
+					actualPath = "/" + parts[1] // 重新构建实际的API路径
+				} else {
+					actualPath = "/"
+				}
+			}
+		}
+	}
+
+	if !isSpecificKey {
+		actualPath = path
+	}
+
+	// 临时修改 gin.Context 的路径参数，以便后续处理使用正确的路径
+	c.Request.URL.Path = "/proxy/" + groupName + actualPath
 
 	group, err := ps.groupManager.GetGroupByName(groupName)
 	if err != nil {
@@ -83,7 +114,7 @@ func (ps *ProxyServer) HandleProxy(c *gin.Context) {
 
 	isStream := channelHandler.IsStreamRequest(c, bodyBytes)
 
-	ps.executeRequestWithRetry(c, channelHandler, group, finalBodyBytes, isStream, startTime, 0)
+	ps.executeRequestWithRetry(c, channelHandler, group, finalBodyBytes, isStream, startTime, 0, isSpecificKey, specificKeyID)
 }
 
 // executeRequestWithRetry is the core recursive function for handling requests and retries.
@@ -95,15 +126,36 @@ func (ps *ProxyServer) executeRequestWithRetry(
 	isStream bool,
 	startTime time.Time,
 	retryCount int,
+	isSpecificKey bool,
+	specificKeyID uint,
 ) {
 	cfg := group.EffectiveConfig
 
-	apiKey, err := ps.keyProvider.SelectKey(group.ID)
-	if err != nil {
-		logrus.Errorf("Failed to select a key for group %s on attempt %d: %v", group.Name, retryCount+1, err)
-		response.Error(c, app_errors.NewAPIError(app_errors.ErrNoKeysAvailable, err.Error()))
-		ps.logRequest(c, group, nil, startTime, http.StatusServiceUnavailable, err, isStream, "", channelHandler, bodyBytes, models.RequestTypeFinal, "")
-		return
+	var apiKey *models.APIKey
+	var err error
+
+	if isSpecificKey {
+		// 使用指定的密钥ID
+		apiKey, err = ps.keyProvider.SelectKeyByID(group.ID, specificKeyID)
+		if err != nil {
+			logrus.Errorf("Failed to get specific key %d for group %s: %v", specificKeyID, group.Name, err)
+			if apiErr, ok := err.(*app_errors.APIError); ok {
+				response.Error(c, apiErr)
+			} else {
+				response.Error(c, app_errors.NewAPIError(app_errors.ErrInternalServer, fmt.Sprintf("Failed to get key: %v", err)))
+			}
+			ps.logRequest(c, group, nil, startTime, http.StatusBadRequest, err, isStream, "", channelHandler, bodyBytes, models.RequestTypeFinal, "")
+			return
+		}
+	} else {
+		// 使用密钥池轮询
+		apiKey, err = ps.keyProvider.SelectKey(group.ID)
+		if err != nil {
+			logrus.Errorf("Failed to select a key for group %s on attempt %d: %v", group.Name, retryCount+1, err)
+			response.Error(c, app_errors.NewAPIError(app_errors.ErrNoKeysAvailable, err.Error()))
+			ps.logRequest(c, group, nil, startTime, http.StatusServiceUnavailable, err, isStream, "", channelHandler, bodyBytes, models.RequestTypeFinal, "")
+			return
+		}
 	}
 
 	upstreamURL, err := channelHandler.BuildUpstreamURL(c.Request.URL, group)
@@ -193,6 +245,18 @@ func (ps *ProxyServer) executeRequestWithRetry(
 		// 使用解析后的错误信息更新密钥状态
 		ps.keyProvider.UpdateStatus(apiKey, group, false, parsedError)
 
+		// 单密钥模式下不进行重试，直接返回错误
+		if isSpecificKey {
+			var errorJSON map[string]any
+			if err := json.Unmarshal([]byte(errorMessage), &errorJSON); err == nil {
+				c.JSON(statusCode, errorJSON)
+			} else {
+				response.Error(c, app_errors.NewAPIErrorWithUpstream(statusCode, "UPSTREAM_ERROR", errorMessage))
+			}
+			ps.logRequest(c, group, apiKey, startTime, statusCode, errors.New(parsedError), isStream, upstreamURL, channelHandler, bodyBytes, models.RequestTypeFinal, "")
+			return
+		}
+
 		// 判断是否为最后一次尝试
 		isLastAttempt := retryCount >= cfg.MaxRetries
 		requestType := models.RequestTypeRetry
@@ -219,7 +283,7 @@ func (ps *ProxyServer) executeRequestWithRetry(
 			time.Sleep(time.Duration(cfg.RetryIntervalMs) * time.Millisecond)
 		}
 
-		ps.executeRequestWithRetry(c, channelHandler, group, bodyBytes, isStream, startTime, retryCount+1)
+		ps.executeRequestWithRetry(c, channelHandler, group, bodyBytes, isStream, startTime, retryCount+1, isSpecificKey, specificKeyID)
 		return
 	}
 
