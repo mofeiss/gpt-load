@@ -60,7 +60,6 @@ const formRef = ref();
 interface GroupFormData {
   name: string;
   display_name: string;
-  description: string;
   upstreams: UpstreamInfo[];
   channel_type: "anthropic" | "gemini" | "openai";
   sort: number;
@@ -73,13 +72,13 @@ interface GroupFormData {
   proxy_keys: string;
   blacklist_threshold: number | null;
   force_http11?: boolean;
+  quick_add_keys: string;
 }
 
 // 表单数据
 const formData = reactive<GroupFormData>({
   name: "",
   display_name: "",
-  description: "",
   upstreams: [
     {
       url: "",
@@ -96,6 +95,7 @@ const formData = reactive<GroupFormData>({
   header_rules: [] as HeaderRuleItem[],
   proxy_keys: "",
   blacklist_threshold: null,
+  quick_add_keys: "",
 });
 
 const channelTypeOptions = ref<{ label: string; value: string }[]>([]);
@@ -273,7 +273,6 @@ function resetForm() {
   Object.assign(formData, {
     name: "",
     display_name: "",
-    description: "",
     upstreams: [
       {
         url: isCreateMode ? upstreamPlaceholder.value : "",
@@ -291,6 +290,7 @@ function resetForm() {
     proxy_keys: "",
     blacklist_threshold: null,
     force_http11: false,
+    quick_add_keys: "",
   });
 
   // 重置用户修改状态追踪
@@ -324,7 +324,6 @@ function loadGroupData() {
   Object.assign(formData, {
     name: props.group.name || "",
     display_name: props.group.display_name || "",
-    description: props.group.description || "",
     upstreams: props.group.upstreams?.length
       ? [...props.group.upstreams]
       : [{ url: "", weight: 1 }],
@@ -343,6 +342,7 @@ function loadGroupData() {
     proxy_keys: props.group.proxy_keys || "",
     blacklist_threshold: blacklistThreshold,
     force_http11: props.group.force_http11 ?? false,
+    quick_add_keys: "",
   });
 }
 
@@ -502,7 +502,6 @@ async function handleSubmit() {
     const submitData = {
       name: formData.name,
       display_name: formData.display_name,
-      description: formData.description,
       upstreams: formData.upstreams.filter((upstream: UpstreamInfo) => upstream.url.trim()),
       channel_type: formData.channel_type,
       sort: formData.sort,
@@ -528,6 +527,17 @@ async function handleSubmit() {
     } else {
       // 新建模式
       res = await keysApi.createGroup(submitData);
+
+      // 如果有快速添加的密钥，则批量添加
+      if (formData.quick_add_keys.trim() && res.id) {
+        try {
+          await keysApi.addKeysAsync(res.id, formData.quick_add_keys.trim());
+          message.success("分组创建成功，密钥正在后台添加中");
+        } catch (error) {
+          message.warning("分组创建成功，但密钥添加失败");
+          console.error("添加密钥失败:", error);
+        }
+      }
     }
 
     // 根据模式发出不同事件
@@ -581,7 +591,6 @@ async function handleSubmit() {
       >
         <!-- 基础信息 -->
         <div class="form-section">
-          <h4 class="section-title">基础信息</h4>
 
           <!-- 分组名称和显示名称在同一行 -->
           <div class="form-row">
@@ -764,11 +773,11 @@ async function handleSubmit() {
             />
           </n-form-item>
 
-          <!-- 强制HTTP/1.1 -->
-          <n-form-item label="强制HTTP/1.1" path="force_http11">
+          <!-- HTTP/1.1 -->
+          <n-form-item label="HTTP/1.1" path="force_http11">
             <template #label>
               <div class="form-label-with-tooltip">
-                强制HTTP/1.1
+                HTTP/1.1
                 <n-tooltip trigger="hover" placement="top">
                   <template #trigger>
                     <n-icon :component="HelpCircleOutline" class="help-icon" />
@@ -780,25 +789,27 @@ async function handleSubmit() {
             <n-switch v-model:value="formData.force_http11" />
           </n-form-item>
 
-          <!-- 描述独占一行 -->
-          <n-form-item label="描述" path="description">
+          <!-- 添加密钥独占一行 -->
+          <n-form-item label="添加密钥" path="quick_add_keys" v-if="!group">
             <template #label>
               <div class="form-label-with-tooltip">
-                描述
+                <span style="color: #d63384; font-weight: bold">添加密钥</span>
                 <n-tooltip trigger="hover" placement="top">
                   <template #trigger>
                     <n-icon :component="HelpCircleOutline" class="help-icon" />
                   </template>
-                  分组的详细说明，帮助团队成员了解该分组的用途和特点。支持多行文本
+                  在创建分组的同时快速添加密钥。每行一个密钥，支持批量输入。创建分组后会自动在后台添加这些密钥。
                 </n-tooltip>
               </div>
             </template>
             <n-input
-              v-model:value="formData.description"
+              v-model:value="formData.quick_add_keys"
               type="textarea"
-              placeholder=""
-              :rows="1"
-              :autosize="{ minRows: 1, maxRows: 5 }"
+              placeholder="每行输入一个API密钥，例如：
+sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx
+sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+              :rows="4"
+              :autosize="{ minRows: 4, maxRows: 10 }"
               style="resize: none"
             />
           </n-form-item>
@@ -806,7 +817,6 @@ async function handleSubmit() {
 
         <!-- 上游地址 -->
         <div class="form-section" style="margin-top: 10px">
-          <h4 class="section-title">上游地址</h4>
           <n-form-item
             v-for="(upstream, index) in formData.upstreams"
             :key="index"
@@ -876,265 +886,6 @@ async function handleSubmit() {
               添加上游地址
             </n-button>
           </n-form-item>
-        </div>
-
-        <!-- 高级配置 -->
-        <div class="form-section" style="margin-top: 10px">
-          <n-collapse>
-            <n-collapse-item name="advanced">
-              <template #header>高级配置</template>
-              <div class="config-section">
-                <h5 class="config-title-with-tooltip">
-                  分组配置
-                  <n-tooltip trigger="hover" placement="top">
-                    <template #trigger>
-                      <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
-                    </template>
-                    针对此分组的专用配置参数，如超时时间、重试次数等。这些配置会覆盖全局默认设置
-                  </n-tooltip>
-                </h5>
-
-                <div class="config-items">
-                  <n-form-item
-                    v-for="(configItem, index) in formData.configItems"
-                    :key="index"
-                    class="config-item-row"
-                    :label="`配置 ${index + 1}`"
-                    :path="`configItems[${index}].key`"
-                    :rule="{
-                      required: true,
-                      message: '',
-                      trigger: ['blur', 'change'],
-                    }"
-                  >
-                    <template #label>
-                      <div class="form-label-with-tooltip">
-                        配置 {{ index + 1 }}
-                        <n-tooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <n-icon :component="HelpCircleOutline" class="help-icon" />
-                          </template>
-                          选择要配置的参数类型，然后设置对应的数值。不同参数有不同的作用和取值范围
-                        </n-tooltip>
-                      </div>
-                    </template>
-                    <div class="config-item-content">
-                      <div class="config-select">
-                        <n-select
-                          v-model:value="configItem.key"
-                          :options="
-                            configOptions
-                              .filter(opt => opt.key !== 'blacklist_threshold')
-                              .map(opt => ({
-                                label: opt.name,
-                                value: opt.key,
-                                disabled:
-                                  formData.configItems
-                                    .map((item: ConfigItem) => item.key)
-                                    ?.includes(opt.key) && opt.key !== configItem.key,
-                              }))
-                          "
-                          placeholder="请选择配置参数"
-                          @update:value="value => handleConfigKeyChange(index, value)"
-                          clearable
-                        />
-                      </div>
-                      <div class="config-value">
-                        <n-tooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <n-input-number
-                              v-if="typeof configItem.value === 'number'"
-                              v-model:value="configItem.value"
-                              placeholder="参数值"
-                              :precision="0"
-                              style="width: 100%"
-                            />
-                            <n-switch
-                              v-else-if="typeof configItem.value === 'boolean'"
-                              v-model:value="configItem.value"
-                              size="small"
-                            />
-                            <n-input v-else v-model:value="configItem.value" placeholder="参数值" />
-                          </template>
-                          {{ getConfigOption(configItem.key)?.description || "设置此配置项的值" }}
-                        </n-tooltip>
-                      </div>
-                      <div class="config-actions">
-                        <n-button
-                          @click="removeConfigItem(index)"
-                          type="error"
-                          quaternary
-                          circle
-                          size="small"
-                        >
-                          <template #icon>
-                            <n-icon :component="Remove" />
-                          </template>
-                        </n-button>
-                      </div>
-                    </div>
-                  </n-form-item>
-                </div>
-
-                <div style="margin-top: 12px; padding-left: 120px">
-                  <n-button
-                    @click="addConfigItem"
-                    dashed
-                    style="width: 100%"
-                    :disabled="formData.configItems.length >= configOptions.length - 1"
-                  >
-                    <template #icon>
-                      <n-icon :component="Add" />
-                    </template>
-                    添加配置参数
-                  </n-button>
-                </div>
-              </div>
-
-              <div class="config-section">
-                <h5 class="config-title-with-tooltip">
-                  自定义请求头
-                  <n-tooltip trigger="hover" placement="top">
-                    <template #trigger>
-                      <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
-                    </template>
-                    <div>
-                      在代理请求转发至上游服务前，对 HTTP 请求头进行添加、覆盖或移除操作。
-                      <br />
-                      支持动态变量：
-                      <br />
-                      • ${CLIENT_IP} - 客户端IP地址
-                      <br />
-                      • ${GROUP_NAME} - 分组名称
-                      <br />
-                      • ${API_KEY} - 当前轮询的API密钥
-                      <br />
-                      • ${TIMESTAMP_MS} - 毫秒时间戳
-                      <br />
-                      • ${TIMESTAMP_S} - 秒时间戳
-                    </div>
-                  </n-tooltip>
-                </h5>
-
-                <div class="header-rules-items">
-                  <n-form-item
-                    v-for="(headerRule, index) in formData.header_rules"
-                    :key="index"
-                    class="header-rule-row"
-                    :label="`请求头 ${index + 1}`"
-                  >
-                    <template #label>
-                      <div class="form-label-with-tooltip">
-                        请求头 {{ index + 1 }}
-                        <n-tooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <n-icon :component="HelpCircleOutline" class="help-icon" />
-                          </template>
-                          配置HTTP请求头的名称、值和操作类型。移除操作会删除指定的请求头
-                        </n-tooltip>
-                      </div>
-                    </template>
-                    <div class="header-rule-content">
-                      <div class="header-name">
-                        <n-input
-                          v-model:value="headerRule.key"
-                          placeholder="Header名称"
-                          :status="
-                            !validateHeaderKeyUniqueness(
-                              formData.header_rules,
-                              index,
-                              headerRule.key
-                            )
-                              ? 'error'
-                              : undefined
-                          "
-                        />
-                        <div
-                          v-if="
-                            !validateHeaderKeyUniqueness(
-                              formData.header_rules,
-                              index,
-                              headerRule.key
-                            )
-                          "
-                          class="error-message"
-                        >
-                          Header名称重复
-                        </div>
-                      </div>
-                      <div class="header-value" v-if="headerRule.action === 'set'">
-                        <n-input
-                          v-model:value="headerRule.value"
-                          placeholder="支持变量，例如：${CLIENT_IP}"
-                        />
-                      </div>
-                      <div class="header-value removed-placeholder" v-else>
-                        <span class="removed-text">将从请求中移除</span>
-                      </div>
-                      <div class="header-action">
-                        <n-tooltip trigger="hover" placement="top">
-                          <template #trigger>
-                            <n-switch
-                              v-model:value="headerRule.action"
-                              :checked-value="'remove'"
-                              :unchecked-value="'set'"
-                              size="small"
-                            />
-                          </template>
-                          开启移除开关将删除此请求头，关闭则添加或覆盖此请求头
-                        </n-tooltip>
-                      </div>
-                      <div class="header-actions">
-                        <n-button
-                          @click="removeHeaderRule(index)"
-                          type="error"
-                          quaternary
-                          circle
-                          size="small"
-                        >
-                          <template #icon>
-                            <n-icon :component="Remove" />
-                          </template>
-                        </n-button>
-                      </div>
-                    </div>
-                  </n-form-item>
-                </div>
-
-                <div style="margin-top: 12px; padding-left: 120px">
-                  <n-button @click="addHeaderRule" dashed style="width: 100%">
-                    <template #icon>
-                      <n-icon :component="Add" />
-                    </template>
-                    添加请求头
-                  </n-button>
-                </div>
-              </div>
-
-              <div class="config-section">
-                <n-form-item path="param_overrides">
-                  <template #label>
-                    <div class="form-label-with-tooltip">
-                      参数覆盖
-                      <n-tooltip trigger="hover" placement="top">
-                        <template #trigger>
-                          <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
-                        </template>
-                        使用JSON格式定义要覆盖的API请求参数。例如： {&quot;temperature&quot;:
-                        0.7}。这些参数会在发送请求时合并到原始参数中
-                      </n-tooltip>
-                    </div>
-                  </template>
-                  <n-input
-                    v-model:value="formData.param_overrides"
-                    type="textarea"
-                    placeholder='{"temperature": 0.7}'
-                    :rows="4"
-                  />
-                </n-form-item>
-              </div>
-            </n-collapse-item>
-          </n-collapse>
         </div>
       </n-form>
 

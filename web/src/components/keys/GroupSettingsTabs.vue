@@ -709,11 +709,11 @@ async function handleSubmit() {
               />
             </n-form-item>
 
-            <!-- 强制HTTP/1.1 -->
-            <n-form-item label="强制HTTP/1.1" path="force_http11">
+            <!-- HTTP/1.1 -->
+            <n-form-item label="HTTP/1.1" path="force_http11">
               <template #label>
                 <div class="form-label-with-tooltip">
-                  强制HTTP/1.1
+                  HTTP/1.1
                   <n-tooltip trigger="hover" placement="top">
                     <template #trigger>
                       <n-icon :component="HelpCircleOutline" class="help-icon" />
