@@ -10,12 +10,10 @@ import {
   NCard,
   NForm,
   NFormItem,
-  NGradientText,
   NGrid,
   NGridItem,
   NIcon,
   NInput,
-  NStatistic,
   NTabPane,
   NTabs,
   NTag,
@@ -215,7 +213,6 @@ watch(
     loadStats();
   }
 );
-
 
 // 监听路由参数变化
 watch(
@@ -653,98 +650,109 @@ defineExpose({
       <!-- 统计摘要区 -->
       <div class="stats-summary">
         <n-spin :show="loading" size="small">
-          <n-grid cols="2 s:4" :x-gap="12" :y-gap="12" responsive="screen">
-            <n-grid-item span="1">
-              <n-statistic :label="`密钥数量：${stats?.key_stats?.total_keys ?? 0}`">
+          <div class="stats-row">
+            <!-- 密钥数量统计 -->
+            <div class="stat-item">
+              <span class="stat-label">密钥数量：{{ stats?.key_stats?.total_keys ?? 0 }}</span>
+              <div class="stat-value">
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="success" size="20">
+                    <span class="stat-number stat-success">
                       {{ stats?.key_stats?.active_keys ?? 0 }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   有效密钥数
                 </n-tooltip>
-                <n-divider vertical />
+                <span class="stat-separator">/</span>
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="error" size="20">
+                    <span class="stat-number stat-error">
                       {{ stats?.key_stats?.invalid_keys ?? 0 }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   无效密钥数
                 </n-tooltip>
-              </n-statistic>
-            </n-grid-item>
-            <n-grid-item span="1">
-              <n-statistic
-                :label="`1小时请求：${formatNumber(stats?.hourly_stats?.total_requests ?? 0)}`"
-              >
+              </div>
+            </div>
+
+            <!-- 1小时请求统计 -->
+            <div class="stat-item">
+              <span class="stat-label">
+                1小时请求：{{ formatNumber(stats?.hourly_stats?.total_requests ?? 0) }}
+              </span>
+              <div class="stat-value">
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="error" size="20">
+                    <span class="stat-number stat-error">
                       {{ formatNumber(stats?.hourly_stats?.failed_requests ?? 0) }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   近1小时失败请求
                 </n-tooltip>
-                <n-divider vertical />
+                <span class="stat-separator">/</span>
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="error" size="20">
+                    <span class="stat-number stat-error">
                       {{ formatPercentage(stats?.hourly_stats?.failure_rate ?? 0) }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   近1小时失败率
                 </n-tooltip>
-              </n-statistic>
-            </n-grid-item>
-            <n-grid-item span="1">
-              <n-statistic
-                :label="`24小时请求：${formatNumber(stats?.daily_stats?.total_requests ?? 0)}`"
-              >
+              </div>
+            </div>
+
+            <!-- 24小时请求统计 -->
+            <div class="stat-item">
+              <span class="stat-label">
+                24小时请求：{{ formatNumber(stats?.daily_stats?.total_requests ?? 0) }}
+              </span>
+              <div class="stat-value">
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="error" size="20">
+                    <span class="stat-number stat-error">
                       {{ formatNumber(stats?.daily_stats?.failed_requests ?? 0) }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   近24小时失败请求
                 </n-tooltip>
-                <n-divider vertical />
+                <span class="stat-separator">/</span>
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="error" size="20">
+                    <span class="stat-number stat-error">
                       {{ formatPercentage(stats?.daily_stats?.failure_rate ?? 0) }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   近24小时失败率
                 </n-tooltip>
-              </n-statistic>
-            </n-grid-item>
-            <n-grid-item span="1">
-              <n-statistic
-                :label="`近7天请求：${formatNumber(stats?.weekly_stats?.total_requests ?? 0)}`"
-              >
+              </div>
+            </div>
+
+            <!-- 近7天请求统计 -->
+            <div class="stat-item">
+              <span class="stat-label">
+                近7天请求：{{ formatNumber(stats?.weekly_stats?.total_requests ?? 0) }}
+              </span>
+              <div class="stat-value">
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="error" size="20">
+                    <span class="stat-number stat-error">
                       {{ formatNumber(stats?.weekly_stats?.failed_requests ?? 0) }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   近7天失败请求
                 </n-tooltip>
-                <n-divider vertical />
+                <span class="stat-separator">/</span>
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <n-gradient-text type="error" size="20">
+                    <span class="stat-number stat-error">
                       {{ formatPercentage(stats?.weekly_stats?.failure_rate ?? 0) }}
-                    </n-gradient-text>
+                    </span>
                   </template>
                   近7天失败率
                 </n-tooltip>
-              </n-statistic>
-            </n-grid-item>
-          </n-grid>
+              </div>
+            </div>
+          </div>
         </n-spin>
       </div>
       <n-divider style="margin: 0" />
@@ -1267,7 +1275,73 @@ defineExpose({
 
 .stats-summary {
   margin-bottom: 12px;
-  text-align: center;
+  padding: 12px 16px;
+  background: rgba(102, 126, 234, 0.02);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-item {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.stat-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-number {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.stat-success {
+  color: #059669;
+}
+
+.stat-error {
+  color: #dc2626;
+}
+
+.stat-separator {
+  color: #9ca3af;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .stats-row {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .stat-item {
+    min-width: 0;
+    flex: none;
+  }
 }
 
 .status-cards-container:deep(.n-card) {
