@@ -493,48 +493,34 @@ async function disableAllKeys() {
     return;
   }
 
-  const d = dialog.warning({
-    title: "停用所有密钥",
-    content: "确定要停用所有密钥吗？",
-    positiveText: "确定",
-    negativeText: "取消",
-    onPositiveClick: async () => {
-      if (!props.selectedGroup?.id) {
-        return;
+  isRestoring.value = true;
+  try {
+    // 获取所有密钥
+    const allKeysResult = await keysApi.getGroupKeys({
+      group_id: props.selectedGroup.id,
+      page: 1,
+      page_size: 10000,
+      status: "active",
+    });
+
+    // 逐个停用密钥
+    for (const key of allKeysResult.items) {
+      if (!key.is_disabled) {
+        await keysApi.toggleKeyDisableStatus(props.selectedGroup.id, key.key_value, true);
       }
+    }
 
-      isRestoring.value = true;
-      d.loading = true;
-      try {
-        // 获取所有密钥
-        const allKeysResult = await keysApi.getGroupKeys({
-          group_id: props.selectedGroup.id,
-          page: 1,
-          page_size: 10000,
-          status: "active",
-        });
-
-        // 逐个停用密钥
-        for (const key of allKeysResult.items) {
-          if (!key.is_disabled) {
-            await keysApi.toggleKeyDisableStatus(props.selectedGroup.id, key.key_value, true);
-          }
-        }
-
-        await loadKeys();
-        window.$message.success("所有密钥已停用", {
-          duration: 3000,
-        });
-        // 触发同步操作刷新
-        triggerSyncOperationRefresh(props.selectedGroup.name, "DISABLE_ALL");
-      } catch (_error) {
-        console.error("停用失败");
-      } finally {
-        d.loading = false;
-        isRestoring.value = false;
-      }
-    },
-  });
+    await loadKeys();
+    window.$message.success("所有密钥已停用", {
+      duration: 3000,
+    });
+    // 触发同步操作刷新
+    triggerSyncOperationRefresh(props.selectedGroup.name, "DISABLE_ALL");
+  } catch (_error) {
+    console.error("停用失败");
+  } finally {
+    isRestoring.value = false;
+  }
 }
 
 async function restoreAllInvalid() {
@@ -574,31 +560,17 @@ async function restoreAllDisabled() {
     return;
   }
 
-  const d = dialog.warning({
-    title: "恢复密钥",
-    content: "确定要恢复所有用户手动暂停的密钥吗？",
-    positiveText: "确定",
-    negativeText: "取消",
-    onPositiveClick: async () => {
-      if (!props.selectedGroup?.id) {
-        return;
-      }
-
-      isRestoring.value = true;
-      d.loading = true;
-      try {
-        await keysApi.restoreAllDisabledKeys(props.selectedGroup.id);
-        await loadKeys();
-        // 触发同步操作刷新
-        triggerSyncOperationRefresh(props.selectedGroup.name, "RESTORE_ALL_DISABLED");
-      } catch (_error) {
-        console.error("恢复暂停密钥失败");
-      } finally {
-        d.loading = false;
-        isRestoring.value = false;
-      }
-    },
-  });
+  isRestoring.value = true;
+  try {
+    await keysApi.restoreAllDisabledKeys(props.selectedGroup.id);
+    await loadKeys();
+    // 触发同步操作刷新
+    triggerSyncOperationRefresh(props.selectedGroup.name, "RESTORE_ALL_DISABLED");
+  } catch (_error) {
+    console.error("恢复暂停密钥失败");
+  } finally {
+    isRestoring.value = false;
+  }
 }
 
 async function validateKeys(status: "all" | "active" | "invalid") {
@@ -753,35 +725,15 @@ async function toggleKeyDisableStatus(key: KeyRow) {
   const newDisableStatus = !key.is_disabled;
   const action = newDisableStatus ? "停用" : "启用";
 
-  const d = dialog.warning({
-    title: `${action}密钥`,
-    content: `确定要${action}密钥"${maskKey(key.key_value)}"吗？`,
-    positiveText: "确定",
-    negativeText: "取消",
-    onPositiveClick: async () => {
-      if (!props.selectedGroup?.id) {
-        return;
-      }
-
-      d.loading = true;
-
-      try {
-        await keysApi.toggleKeyDisableStatus(
-          props.selectedGroup.id,
-          key.key_value,
-          newDisableStatus
-        );
-        key.is_disabled = newDisableStatus;
-        window.$message.success(`密钥已${action}`, {
-          duration: 3000,
-        });
-      } catch (_error) {
-        console.error(`${action}失败`);
-      } finally {
-        d.loading = false;
-      }
-    },
-  });
+  try {
+    await keysApi.toggleKeyDisableStatus(props.selectedGroup.id, key.key_value, newDisableStatus);
+    key.is_disabled = newDisableStatus;
+    window.$message.success(`密钥已${action}`, {
+      duration: 3000,
+    });
+  } catch (_error) {
+    console.error(`${action}失败`);
+  }
 }
 
 // 开始编辑备注
