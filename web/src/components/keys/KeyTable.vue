@@ -866,7 +866,7 @@ function cancelEditingRemarks(key: KeyRow) {
             size="small"
             style="width: 100px"
           />
-          <n-input-group>
+          <n-input-group class="search-input-group">
             <n-input
               v-model:value="searchText"
               placeholder="Key 模糊查询"
@@ -1132,6 +1132,10 @@ function cancelEditingRemarks(key: KeyRow) {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.search-input-group {
+  display: none;
 }
 
 .filter-group {
