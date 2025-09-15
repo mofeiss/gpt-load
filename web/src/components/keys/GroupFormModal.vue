@@ -566,7 +566,7 @@ async function handleSubmit() {
   <n-modal :show="show" @update:show="handleClose" class="group-form-modal">
     <n-card
       class="group-form-card"
-      :title="group ? '编辑分组' : '创建分组'"
+      :title="group ? '编辑节点' : '创建节点'"
       :bordered="false"
       size="huge"
       role="dialog"
@@ -591,13 +591,12 @@ async function handleSubmit() {
       >
         <!-- 基础信息 -->
         <div class="form-section">
-
           <!-- 分组名称和显示名称在同一行 -->
           <div class="form-row">
             <n-form-item label="分组名称" path="name" class="form-item-half">
               <template #label>
                 <div class="form-label-with-tooltip">
-                  分组名称
+                  节点名称
                   <n-tooltip trigger="hover" placement="top">
                     <template #trigger>
                       <n-icon :component="HelpCircleOutline" class="help-icon" />
@@ -798,7 +797,7 @@ async function handleSubmit() {
                   <template #trigger>
                     <n-icon :component="HelpCircleOutline" class="help-icon" />
                   </template>
-                  在创建分组的同时快速添加密钥。每行一个密钥，支持批量输入。创建分组后会自动在后台添加这些密钥。
+                  在创建节点的同时快速添加密钥。每行一个密钥，支持批量输入。创建节点后会自动在后台添加这些密钥。
                 </n-tooltip>
               </div>
             </template>
