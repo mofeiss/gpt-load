@@ -507,7 +507,7 @@ async function handleSubmit() {
             :class="{
               'nav-tab-active': activeTab === tab.key,
               'nav-tab-disabled': tab.disabled,
-              'nav-tab-placeholder': tab.key === 'placeholder'
+              'nav-tab-placeholder': tab.key === 'placeholder',
             }"
             @click="!tab.disabled && (activeTab = tab.key)"
           >

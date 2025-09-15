@@ -177,6 +177,9 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
 
     <!-- 右侧主内容区域 -->
     <div class="main-content">
+      <!-- CCR 模型设置区域 -->
+      <c-c-r-settings-card :group="selectedGroup" @refresh="handleGroupRefresh" />
+
       <!-- 分组信息卡片 -->
       <div class="group-info">
         <group-info-card
@@ -187,9 +190,6 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
           @group-updated="handleGroupUpdated"
         />
       </div>
-
-      <!-- CCR 模型显示区域 -->
-      <c-c-r-settings-card :group="selectedGroup" @refresh="handleGroupRefresh" />
 
       <!-- 密钥表格区域 -->
       <div class="key-table-section">

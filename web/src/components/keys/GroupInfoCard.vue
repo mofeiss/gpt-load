@@ -4,15 +4,7 @@ import type { Group, GroupConfigOption, GroupStatsResponse } from "@/types/model
 import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
-import {
-  CheckmarkOutline,
-  CopyOutline,
-  EyeOffOutline,
-  EyeOutline,
-  Pencil,
-  Refresh,
-  Trash,
-} from "@vicons/ionicons5";
+import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
 import {
   NButton,
   NCard,
@@ -77,11 +69,6 @@ const channelTypeCycle = ["openai", "anthropic", "gemini"] as const;
 const isEditingDescription = ref(false);
 const editingDescription = ref("");
 const descriptionLoading = ref(false);
-
-// 片段编辑相关状态（完全复制描述的模式）
-const isEditingCodeSnippet = ref(false);
-const editingCodeSnippet = ref("");
-const codeSnippetLoading = ref(false);
 
 const proxyKeysDisplay = computed(() => {
   if (!props.group?.proxy_keys) {
@@ -456,70 +443,12 @@ async function saveDescription() {
   }
 }
 
-// 开始编辑片段（复制描述的逻辑）
-function startEditingCodeSnippet() {
-  if (!props.group) {
-    return;
-  }
-  isEditingCodeSnippet.value = true;
-  editingCodeSnippet.value = props.group.code_snippet || "";
-
-  // 等待DOM更新后自动聚焦到输入框
-  nextTick(() => {
-    const codeSnippetInput = document.querySelector(
-      ".code-snippet-textarea .n-input__textarea-el"
-    ) as HTMLElement;
-    if (codeSnippetInput) {
-      codeSnippetInput.focus();
-    }
-  });
-}
-
-// 取消编辑片段
-function cancelEditingCodeSnippet() {
-  isEditingCodeSnippet.value = false;
-  editingCodeSnippet.value = "";
-}
-
-// 保存片段编辑（完全复制描述的逻辑）
-async function saveCodeSnippet() {
-  if (!props.group || codeSnippetLoading.value || props.group.id === undefined) {
-    return;
-  }
-
-  try {
-    codeSnippetLoading.value = true;
-
-    // 调用API更新分组片段
-    const updatedGroup = await keysApi.updateGroup(props.group.id, {
-      code_snippet: editingCodeSnippet.value,
-    });
-
-    // 通知父组件更新数据
-    emit("group-updated", updatedGroup);
-    isEditingCodeSnippet.value = false;
-    editingCodeSnippet.value = "";
-
-    message.success("片段已更新");
-  } catch (error) {
-    console.error("更新片段失败:", error);
-    message.error("更新片段失败，请稍后重试");
-    // 保存失败时保持编辑状态，让用户可以继续编辑
-    isEditingCodeSnippet.value = true;
-  } finally {
-    codeSnippetLoading.value = false;
-  }
-}
-
 function resetPage() {
   // showEditModal.value = false; // 不再需要模态框
   showCopyModal.value = false;
   // 重置内联编辑状态
   isEditingDescription.value = false;
   editingDescription.value = "";
-  // 重置片段编辑状态
-  isEditingCodeSnippet.value = false;
-  editingCodeSnippet.value = "";
   // 重置标签页到描述卡片
   activeTab.value = "description";
 }
@@ -532,23 +461,6 @@ async function copyDescription() {
   const success = await copy(props.group.description);
   if (success) {
     window.$message.success("描述已复制到剪贴板", {
-      duration: 3000,
-    });
-  } else {
-    window.$message.error("复制失败", {
-      duration: 3000,
-    });
-  }
-}
-
-// 复制片段内容
-async function copyCodeSnippet() {
-  if (!props.group?.code_snippet) {
-    return;
-  }
-  const success = await copy(props.group.code_snippet);
-  if (success) {
-    window.$message.success("片段已复制到剪贴板", {
       duration: 3000,
     });
   } else {
@@ -572,19 +484,8 @@ async function copyCodeSnippet() {
               </h3>
             </div>
             <div class="column-row-2">
-              <n-button
-                v-if="group"
-                type="primary"
-                size="small"
-                @click="() => {}"
-                class="apply-to-ccr-btn"
-              >
-                <template #icon>
-                  <n-icon :component="CheckmarkOutline" />
-                </template>
-                应用到ccr
-              </n-button>
-              <span v-else class="group-button-placeholder">&nbsp;</span>
+              <!-- 应用到ccr按钮已移至CCRSettingsCard组件 -->
+              <span class="group-button-placeholder">&nbsp;</span>
             </div>
           </div>
 
@@ -839,61 +740,7 @@ async function copyCodeSnippet() {
             </div>
           </n-tab-pane>
 
-          <!-- 片段标签页 (索引 1) -->
-          <n-tab-pane name="code-snippet" tab="片段">
-            <!-- 分组片段区域 -->
-            <div class="group-description-section card-section">
-              <!-- 固定复制按钮 -->
-              <n-button
-                v-if="group?.code_snippet && !isEditingCodeSnippet"
-                quaternary
-                circle
-                size="small"
-                @click="copyCodeSnippet"
-                class="fixed-copy-btn"
-                title="复制片段"
-              >
-                <template #icon>
-                  <n-icon :component="CopyOutline" />
-                </template>
-              </n-button>
-              <!-- 显示模式：点击可编辑 -->
-              <div
-                class="description-content code-snippet-content"
-                v-if="!isEditingCodeSnippet && group?.code_snippet"
-                @click="startEditingCodeSnippet"
-                :class="{ 'description-editable': !isEditingCodeSnippet }"
-              >
-                {{ group.code_snippet }}
-              </div>
-
-              <!-- 显示模式：没有片段时的占位符 -->
-              <div
-                class="description-content description-placeholder"
-                v-if="!isEditingCodeSnippet && !group?.code_snippet"
-                @click="startEditingCodeSnippet"
-                :class="{ 'description-editable': !isEditingCodeSnippet }"
-              >
-                点击添加代码片段...
-              </div>
-
-              <!-- 编辑模式 -->
-              <div class="description-edit-container" v-if="isEditingCodeSnippet">
-                <n-input
-                  v-model:value="editingCodeSnippet"
-                  type="textarea"
-                  placeholder="请输入代码片段..."
-                  :loading="codeSnippetLoading"
-                  @blur="saveCodeSnippet"
-                  @keyup.enter.ctrl="saveCodeSnippet"
-                  @keyup.esc="cancelEditingCodeSnippet"
-                  class="description-textarea code-snippet-textarea"
-                />
-              </div>
-            </div>
-          </n-tab-pane>
-
-          <!-- 详细信息标签页 (索引 2) -->
+          <!-- 详细信息标签页 (索引 1) -->
           <n-tab-pane name="details" tab="详细信息">
             <div class="details-content">
               <div class="detail-section">
@@ -1042,7 +889,7 @@ async function copyCodeSnippet() {
             </div>
           </n-tab-pane>
 
-          <!-- 设置标签页 (索引 3) -->
+          <!-- 设置标签页 (索引 2) -->
           <n-tab-pane name="settings" tab="设置">
             <div class="settings-content">
               <div v-if="!group" class="no-group-message">
