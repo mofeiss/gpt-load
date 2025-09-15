@@ -84,33 +84,6 @@ const currentModelsFromJson = computed(() => {
   return extractModelsFromJson(jsonInput.value);
 });
 
-// 获取默认JSON结构
-function getDefaultCodeSnippet(): string {
-  if (!props.group) {
-    return "";
-  }
-
-  return JSON.stringify(
-    {
-      name: props.group.name,
-      api_base_url: `http://localhost:3001/proxy/${props.group.name}/v1/chat/completions`,
-      api_key: "your-api-key-here",
-      models: [],
-      transformer: {
-        use: [
-          [
-            "maxtoken",
-            {
-              max_tokens: 65535,
-            },
-          ],
-        ],
-      },
-    },
-    null,
-    2
-  );
-}
 
 // 从JSON中提取模型列表
 function extractModelsFromJson(jsonStr: string): string[] {

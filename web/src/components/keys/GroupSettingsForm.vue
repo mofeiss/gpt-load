@@ -496,6 +496,11 @@ async function handleSubmit() {
     loading.value = false;
   }
 }
+
+// 暴露方法给父组件
+defineExpose({
+  handleSubmit,
+});
 </script>
 
 <template>
