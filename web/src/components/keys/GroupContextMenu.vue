@@ -67,7 +67,7 @@ const menuOptions = computed(() => {
     });
   } else {
     options.push({
-      label: "归档节点",
+      label: "归档",
       key: "archive",
     });
   }
@@ -161,8 +161,8 @@ async function archiveGroup() {
     message.success("节点归档成功");
     emit("archived", updatedGroup);
   } catch (error) {
-    console.error("归档节点失败:", error);
-    message.error("归档节点失败");
+    console.error("归档失败:", error);
+    message.error("归档失败");
   } finally {
     isProcessing.value = false;
   }
@@ -182,8 +182,8 @@ async function unarchiveGroup() {
     message.success("节点取消归档成功");
     emit("unarchived", updatedGroup);
   } catch (error) {
-    console.error("取消归档节点失败:", error);
-    message.error("取消归档节点失败");
+    console.error("取消归档失败:", error);
+    message.error("取消归档失败");
   } finally {
     isProcessing.value = false;
   }

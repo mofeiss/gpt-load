@@ -318,7 +318,7 @@ function handleCopySuccess(newGroup: Group) {
               <n-collapse-item name="archived" class="archived-collapse">
                 <template #header>
                   <div class="archived-header">
-                    <span class="archived-title">归档节点 ({{ localArchivedGroups.length }})</span>
+                    <span class="archived-title">归档 ({{ localArchivedGroups.length }})</span>
                   </div>
                 </template>
                 <vue-draggable-next
