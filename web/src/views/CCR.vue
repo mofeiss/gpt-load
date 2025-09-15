@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { useMessage, NSpace, NSpin, NResult, NButton } from "naive-ui";
+import { useMessage, NSpin, NResult, NButton } from "naive-ui";
 import axios from "axios";
 
 const iframeRef = ref<HTMLIFrameElement | null>(null);
@@ -32,17 +32,6 @@ async function fetchCCRConfig() {
     console.error("获取 CCR 配置失败:", error);
     message.error("获取 CCR 配置失败");
   }
-}
-
-function copyToClipboard(text: string) {
-  navigator.clipboard
-    .writeText(text)
-    .then(() => {
-      message.success("已复制到剪切板");
-    })
-    .catch(() => {
-      message.error("复制失败");
-    });
 }
 
 const handleIframeLoad = () => {

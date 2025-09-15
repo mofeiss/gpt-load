@@ -84,7 +84,6 @@ const currentModelsFromJson = computed(() => {
   return extractModelsFromJson(jsonInput.value);
 });
 
-
 // 从JSON中提取模型列表
 function extractModelsFromJson(jsonStr: string): string[] {
   if (!jsonStr.trim()) {
@@ -781,61 +780,55 @@ onMounted(() => {
         <div class="action-section">
           <n-spin :show="isDetecting" size="small">
             <div class="detection-buttons">
-              <n-button
-                v-if="ccrDetectionStatus === 'add'"
-                type="primary"
-                size="small"
-                @click="addToCCR"
-                :loading="isOperating"
-                :disabled="!selectedDefaultModel"
-              >
-                <template #icon>
-                  <n-icon :component="CloudUploadOutline" />
-                </template>
-                添加到CCR
-              </n-button>
+              <!-- 左侧按钮组：添加和保存 -->
+              <div class="left-buttons">
+                <n-button
+                  v-if="ccrDetectionStatus === 'add'"
+                  type="primary"
+                  size="small"
+                  @click="addToCCR"
+                  :loading="isOperating"
+                  :disabled="!selectedDefaultModel"
+                >
+                  <template #icon>
+                    <n-icon :component="CloudUploadOutline" />
+                  </template>
+                  添加到CCR
+                </n-button>
 
-              <n-button
-                v-if="ccrDetectionStatus === 'exists'"
-                type="info"
-                size="small"
-                @click="updateCCR"
-                :loading="isOperating"
-                :disabled="!selectedDefaultModel"
-              >
-                <template #icon>
-                  <n-icon :component="SyncOutline" />
-                </template>
-                保存到CCR
-              </n-button>
-
-              <n-button
-                v-if="ccrDetectionStatus === 'exists'"
-                type="info"
-                size="small"
-                @click="pullFromCCR"
-                :loading="isOperating"
-              >
-                <template #icon>
-                  <n-icon :component="DownloadOutline" />
-                </template>
-                从CCR拉取
-              </n-button>
-
-              <n-button
-                v-if="ccrDetectionStatus === 'exists'"
-                type="error"
-                size="small"
-                @click="removeFromCCR"
-                :loading="isOperating"
-              >
-                <template #icon>
-                  <n-icon :component="TrashBinOutline" />
-                </template>
-                从CCR移除
-              </n-button>
+                <n-button
+                  v-if="ccrDetectionStatus === 'exists'"
+                  type="info"
+                  size="small"
+                  @click="updateCCR"
+                  :loading="isOperating"
+                  :disabled="!selectedDefaultModel"
+                >
+                  <template #icon>
+                    <n-icon :component="SyncOutline" />
+                  </template>
+                  保存到CCR
+                </n-button>
+              </div>
             </div>
           </n-spin>
+        </div>
+
+        <!-- CCR管理按钮组：拉取和移除 -->
+        <div class="ccr-management-section" v-if="ccrDetectionStatus === 'exists'">
+          <n-button type="info" size="small" @click="pullFromCCR" :loading="isOperating">
+            <template #icon>
+              <n-icon :component="DownloadOutline" />
+            </template>
+            从CCR拉取
+          </n-button>
+
+          <n-button type="error" size="small" @click="removeFromCCR" :loading="isOperating">
+            <template #icon>
+              <n-icon :component="TrashBinOutline" />
+            </template>
+            从CCR移除
+          </n-button>
         </div>
 
         <!-- 工具区域 -->
@@ -847,12 +840,32 @@ onMounted(() => {
             size="small"
             @click="createDefaultJsonConfig"
             :loading="isLoading"
-            style="margin-right: 8px"
           >
             创建默认JSON
           </n-button>
+        </div>
+      </div>
 
-          <n-button type="info" ghost size="small" @click="openJsonModal">
+      <!-- 模型标签展示区域 -->
+      <div class="models-display-section" v-if="ccrModels.length > 0">
+        <div class="models-tags-row">
+          <n-space class="tags-space" :size="8">
+            <n-tooltip v-for="model in ccrModels" :key="model" trigger="hover">
+              <template #trigger>
+                <n-tag
+                  type="info"
+                  round
+                  :bordered="false"
+                  style="cursor: pointer"
+                  @click="copyToClipboard(`/model ${group?.name || ''},${model}`)"
+                >
+                  {{ model }}
+                </n-tag>
+              </template>
+              点击复制模型切换命令
+            </n-tooltip>
+          </n-space>
+          <n-button type="info" ghost size="small" @click="openJsonModal" class="json-button">
             <template #icon>
               <n-icon :component="CodeSlash" />
             </template>
@@ -861,29 +874,16 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 模型标签展示区域 -->
-      <div class="models-display-section" v-if="ccrModels.length > 0">
-        <div class="models-label">可用模型:</div>
-        <n-space class="tags-space" :size="8">
-          <n-tooltip v-for="model in ccrModels" :key="model" trigger="hover">
-            <template #trigger>
-              <n-tag
-                type="info"
-                round
-                :bordered="false"
-                style="cursor: pointer"
-                @click="copyToClipboard(`/model ${group?.name || ''},${model}`)"
-              >
-                {{ model }}
-              </n-tag>
-            </template>
-            点击复制模型切换命令
-          </n-tooltip>
-        </n-space>
-      </div>
-
       <div v-else class="no-models-section">
-        <span class="no-models-text">未设置自定义模型</span>
+        <div class="models-header">
+          <span class="no-models-text">未设置自定义模型</span>
+          <n-button type="info" ghost size="small" @click="openJsonModal">
+            <template #icon>
+              <n-icon :component="CodeSlash" />
+            </template>
+            JSON
+          </n-button>
+        </div>
       </div>
     </n-card>
 
@@ -998,12 +998,29 @@ onMounted(() => {
   display: flex;
   align-items: center;
   min-height: 32px;
+  flex: 1;
 }
 
 .detection-buttons {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+}
+
+.left-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ccr-management-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  margin-right: -16px;
 }
 
 .tools-section {
@@ -1018,10 +1035,26 @@ onMounted(() => {
   border-top: 1px solid #f0f0f0;
 }
 
+.models-tags-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.json-button {
+  flex-shrink: 0;
+}
+
+.models-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .models-label {
   font-size: 13px;
   color: #666;
-  margin-bottom: 8px;
   font-weight: 500;
 }
 
@@ -1033,6 +1066,7 @@ onMounted(() => {
 
 .tags-space {
   flex-wrap: wrap;
+  flex: 1;
 }
 
 .no-models-text {
