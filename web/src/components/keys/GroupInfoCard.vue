@@ -823,21 +823,27 @@ defineExpose({
                     {{ isEditMode ? "查看模式" : "编辑模式" }}
                   </n-button>
 
-                  <!-- 保存取消按钮组 -->
-                  <n-button-group class="action-buttons">
-                    <n-button
-                      type="primary"
-                      @click="handleEditModeSubmit"
-                      :loading="editModeLoading"
-                      :disabled="!isEditMode"
-                      size="small"
-                    >
-                      保存
-                    </n-button>
-                    <n-button @click="exitEditMode" :disabled="!isEditMode" size="small">
-                      取消
-                    </n-button>
-                  </n-button-group>
+                  <!-- 保存按钮 -->
+                  <n-button
+                    type="primary"
+                    @click="handleEditModeSubmit"
+                    :loading="editModeLoading"
+                    :disabled="!isEditMode"
+                    size="small"
+                    class="save-btn"
+                  >
+                    保存
+                  </n-button>
+
+                  <!-- 取消按钮 -->
+                  <n-button
+                    @click="exitEditMode"
+                    :disabled="!isEditMode"
+                    size="small"
+                    class="cancel-btn"
+                  >
+                    取消
+                  </n-button>
                 </div>
 
                 <!-- 右侧内容区域 -->
@@ -1627,10 +1633,10 @@ defineExpose({
 }
 
 .buttons-area {
-  flex: 0 0 160px;
+  flex: 0 0 120px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
   padding-right: 20px;
   border-right: 1px solid #e5e7eb;
 }
@@ -1639,12 +1645,9 @@ defineExpose({
   width: 100%;
 }
 
-.action-buttons {
+.save-btn,
+.cancel-btn {
   width: 100%;
-}
-
-.action-buttons .n-button {
-  flex: 1;
 }
 
 .content-area {
@@ -1679,12 +1682,9 @@ defineExpose({
     border-bottom: 1px solid #e5e7eb;
   }
 
-  .mode-toggle-btn {
-    width: auto;
-    flex: 1;
-  }
-
-  .action-buttons {
+  .mode-toggle-btn,
+  .save-btn,
+  .cancel-btn {
     width: auto;
     flex: 1;
   }
