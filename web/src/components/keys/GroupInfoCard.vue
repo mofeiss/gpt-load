@@ -533,6 +533,8 @@ async function handleEditModeSubmit() {
 defineExpose({
   handleEdit,
 });
+
+const isShow = ref(false);
 </script>
 
 <template>
@@ -646,9 +648,9 @@ defineExpose({
         </div>
       </template>
 
-      <n-divider style="margin: 0; margin-bottom: 12px" />
+      <!-- <n-divider style="margin: 0; margin-bottom: 12px" /> -->
       <!-- 统计摘要区 -->
-      <div class="stats-summary">
+      <div class="stats-summary" v-show="isShow">
         <n-spin :show="loading" size="small">
           <div class="stats-row">
             <!-- 密钥数量统计 -->
@@ -755,7 +757,7 @@ defineExpose({
           </div>
         </n-spin>
       </div>
-      <n-divider style="margin: 0" />
+      <!-- <n-divider style="margin: 0" /> -->
 
       <!-- 标签页区域 -->
       <div class="tab-section">
@@ -1358,7 +1360,7 @@ defineExpose({
 }
 
 .tab-section {
-  margin-top: 12px;
+  margin-top: -10px;
 }
 
 .details-section {

@@ -54,10 +54,12 @@ const fetchStats = async () => {
 onMounted(() => {
   fetchStats();
 });
+
+const isShow = ref(false);
 </script>
 
 <template>
-  <div class="stats-container">
+  <div class="stats-container" v-show="isShow">
     <n-space vertical size="medium">
       <n-grid cols="2 s:4" :x-gap="20" :y-gap="20" responsive="screen">
         <!-- 密钥数量 -->
