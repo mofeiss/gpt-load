@@ -31,7 +31,7 @@ function cancelEdit() {
 }
 
 async function saveChanges() {
-  if (!props.group || typeof props.group.id !== 'number') {
+  if (!props.group || typeof props.group.id !== "number") {
     message.error("未选择有效的分组");
     return;
   }

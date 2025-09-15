@@ -34,7 +34,7 @@ import {
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import GroupCopyModal from "./GroupCopyModal.vue";
-import GroupSettingsForm from "./GroupSettingsForm.vue";
+import GroupSettingsTabs from "./GroupSettingsTabs.vue";
 
 interface Props {
   group: Group | null;
@@ -1049,7 +1049,7 @@ async function copyCodeSnippet() {
                 <p>请先选择一个分组</p>
               </div>
               <div v-else class="settings-form-container">
-                <group-settings-form :group="group" @updated="handleGroupUpdatedFromSettings" />
+                <group-settings-tabs :group="group" @updated="handleGroupUpdatedFromSettings" />
               </div>
             </div>
           </n-tab-pane>
