@@ -3,7 +3,7 @@ import type { Group, Category } from "@/types/models";
 import { keysApi } from "@/api/keys";
 import { categoriesApi } from "@/api/categories";
 import { NDropdown, useDialog, useMessage } from "naive-ui";
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
 
 interface Props {
   group: Group;
@@ -41,6 +41,22 @@ const showDropdown = computed({
 
 const dropdownX = computed(() => props.x);
 const dropdownY = computed(() => props.y);
+
+// 实时加载分类数据 - 当菜单显示时重新加载
+const refreshCategories = async () => {
+  try {
+    categories.value = await categoriesApi.getCategories();
+  } catch (error) {
+    console.error("加载分类失败:", error);
+  }
+};
+
+// 监听菜单显示状态，显示时刷新分类数据
+watch(() => props.show, async (newShow) => {
+  if (newShow) {
+    await refreshCategories();
+  }
+});
 
 // 加载分类数据
 onMounted(async () => {
@@ -80,18 +96,13 @@ const menuOptions = computed(() => {
 
   // 添加移动到分类的子菜单
   if (categories.value.length > 0) {
-    const moveToOptions = categories.value.map(category => ({
+    // 过滤掉 archived 分类，避免重复显示
+    const nonArchivedCategories = categories.value.filter(category => category.name !== "archived");
+
+    const moveToOptions = nonArchivedCategories.map(category => ({
       label: category.name,
       key: `move-to-category-${category.id}`,
     }));
-
-    // 如果当前不在归档中，添加"移动到归档"选项
-    if (!props.group.archived) {
-      moveToOptions.push({
-        label: "归档",
-        key: "move-to-archive",
-      });
-    }
 
     // 如果当前已分类，添加"移动到未分类"选项
     if (props.group.category_id) {
@@ -101,11 +112,14 @@ const menuOptions = computed(() => {
       });
     }
 
-    options.push({
-      label: "移动到",
-      key: "move-to",
-      children: moveToOptions,
-    });
+    // 只有在有可移动的分类时才添加"移动到"子菜单
+    if (moveToOptions.length > 0) {
+      options.push({
+        label: "移动到",
+        key: "move-to",
+        children: moveToOptions,
+      });
+    }
   }
 
   // 添加归档/取消归档选项
@@ -161,9 +175,6 @@ async function handleMenuSelect(key: string) {
       break;
     case "move-to-uncategorized":
       await moveToCategory(null);
-      break;
-    case "move-to-archive":
-      await archiveGroup();
       break;
     case "delete":
       dialog.warning({
