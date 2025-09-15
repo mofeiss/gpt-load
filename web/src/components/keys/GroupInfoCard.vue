@@ -953,7 +953,7 @@ defineExpose({
                     <n-tab-pane name="upstream" tab="上游地址">
                       <!-- 查看模式 -->
                       <div v-if="!isEditMode" class="tab-content">
-                        <n-form label-placement="left" label-width="100px">
+                        <n-form label-placement="left">
                           <n-form-item
                             v-for="(upstream, index) in group?.upstreams ?? []"
                             :key="index"
