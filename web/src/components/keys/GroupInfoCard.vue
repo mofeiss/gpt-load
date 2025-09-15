@@ -16,8 +16,8 @@ import {
   NIcon,
   NInput,
   NStatistic,
-  NTabs,
   NTabPane,
+  NTabs,
   NTag,
   NTooltip,
   useDialog,
@@ -1348,7 +1348,7 @@ async function handleEditModeSubmit() {
   background: rgba(102, 126, 234, 0.05);
   border-radius: var(--border-radius-sm);
   border-left: 4px solid rgba(102, 126, 234, 0.3);
-  max-height: 400px; /* 限制最大高度为400px */
+  max-height: 300px; /* 限制最大高度为400px */
   overflow-y: auto; /* 超出时显示滚动条 */
 }
 
@@ -1431,17 +1431,17 @@ async function handleEditModeSubmit() {
 .description-edit-container {
   display: flex;
   flex-direction: column;
-  height: 400px; /* 固定高度为 300px */
+  height: 300px; /* 固定高度为 300px */
 }
 
 /* 描述编辑框样式 */
 .description-textarea {
-  height: 375px; /* 固定高度为 375px */
+  height: 275px; /* 固定高度为 275px */
 }
 
 .description-textarea :deep(.n-input__textarea-el) {
-  height: 375px !important; /* 固定高度为 375px */
-  min-height: 375px !important;
+  height: 275px !important; /* 固定高度为 275px */
+  min-height: 275px !important;
   resize: none !important;
   overflow-y: auto !important;
 }
