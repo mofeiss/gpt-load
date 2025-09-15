@@ -193,11 +193,29 @@ onMounted(() => {
 
 watch(
   () => props.group,
-  () => {
-    resetPage();
+  (newGroup, oldGroup) => {
+    // 只有在组实际发生变化时才完全重置页面
+    if (!oldGroup || !newGroup || oldGroup.id !== newGroup.id) {
+      // 如果当前处于编辑模式，不要重置标签页状态
+      // 这是为了避免在通过右键菜单编辑其他分组时，标签页被意外重置
+      const shouldPreserveTabState = isEditMode.value;
+
+      // 重置除标签页外的其他状态
+      showCopyModal.value = false;
+      isEditingDescription.value = false;
+      editingDescription.value = "";
+
+      // 如果不在编辑模式，才重置标签页相关状态
+      if (!shouldPreserveTabState) {
+        isEditMode.value = false;
+        detailsActiveTab.value = "basic";
+        activeTab.value = "description";
+      }
+    }
     loadStats();
   }
 );
+
 
 // 监听路由参数变化
 watch(
@@ -449,19 +467,6 @@ async function saveDescription() {
   }
 }
 
-function resetPage() {
-  // showEditModal.value = false; // 不再需要模态框
-  showCopyModal.value = false;
-  // 重置内联编辑状态
-  isEditingDescription.value = false;
-  editingDescription.value = "";
-  // 重置详细信息编辑模式
-  isEditMode.value = false;
-  detailsActiveTab.value = "basic";
-  // 重置标签页到描述卡片
-  activeTab.value = "description";
-}
-
 // 复制描述内容
 async function copyDescription() {
   if (!props.group?.description) {
@@ -526,6 +531,11 @@ async function handleEditModeSubmit() {
     editModeLoading.value = false;
   }
 }
+
+// 暴露编辑方法供父组件调用
+defineExpose({
+  handleEdit,
+});
 </script>
 
 <template>

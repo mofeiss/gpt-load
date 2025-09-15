@@ -71,7 +71,7 @@ onMounted(() => {
 
 <template>
   <div class="ccr-container">
-    <!-- 提供者按钮区域 -->
+    <!-- 提供者按钮区域
     <div v-if="providers.length > 0" class="provider-buttons">
       <n-space :size="8" :wrap="true">
         <n-button
@@ -84,7 +84,7 @@ onMounted(() => {
           {{ `${provider.name},${provider.models[0]}` }}
         </n-button>
       </n-space>
-    </div>
+    </div> -->
 
     <div v-if="isLoading" class="loading-container">
       <n-spin size="large">

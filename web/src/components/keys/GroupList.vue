@@ -4,7 +4,6 @@ import { getGroupDisplayName } from "@/utils/display";
 import { Add, Search } from "@vicons/ionicons5";
 import { NButton, NCard, NEmpty, NInput, NSpin, NTag, NCollapse, NCollapseItem } from "naive-ui";
 import { ref, watch, onMounted } from "vue";
-import { useRouter } from "vue-router";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupContextMenu from "./GroupContextMenu.vue";
 import GroupCopyModal from "./GroupCopyModal.vue";
@@ -29,6 +28,7 @@ interface Emits {
   (e: "group-unarchived", group: Group): void;
   (e: "group-updated", group: Group): void;
   (e: "groups-order-updated", groups: Group[]): void;
+  (e: "edit", group: Group): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -36,8 +36,6 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<Emits>();
-
-const router = useRouter();
 
 const searchText = ref("");
 const showGroupModal = ref(false);
@@ -229,14 +227,10 @@ function handleCopyGroup(group: Group) {
 
 // 处理编辑分组
 function handleEditGroup(group: Group) {
-  // 跳转到 Keys 页面并选择该分组，然后切换到设置标签
-  router.push({
-    path: "/keys",
-    query: {
-      groupId: group.id,
-      tab: "settings",
-    },
-  });
+  // 先选择该分组，然后通知父组件进入编辑模式
+  emit("group-select", group);
+  // 直接发出编辑事件，由父组件处理编辑模式切换
+  emit("edit", group);
 }
 
 // 处理复制成功
@@ -599,11 +593,9 @@ function handleCopySuccess(newGroup: Group) {
   padding: 8px 0;
 }
 
-:deep(.archived-collapse .n-collapse-item__content-inner) {
-  /* padding-top: 8px; */
-}
-
-:deep(.n-collapse .n-collapse-item .n-collapse-item__content-wrapper .n-collapse-item__content-inner) {
+:deep(
+  .n-collapse .n-collapse-item .n-collapse-item__content-wrapper .n-collapse-item__content-inner
+) {
   padding-top: 0 !important;
 }
 

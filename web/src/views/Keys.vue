@@ -16,6 +16,7 @@ const loading = ref(false);
 const selectedGroup = ref<Group | null>(null);
 const route = useRoute();
 const message = useMessage();
+const groupInfoCardRef = ref();
 
 onMounted(async () => {
   await loadGroups();
@@ -156,6 +157,13 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
     await loadGroups();
   }
 }
+
+function handleEditGroup(group: Group) {
+  // 确保选中该分组
+  selectedGroup.value = group;
+  // 通过ref调用GroupInfoCard的编辑方法
+  groupInfoCardRef.value?.handleEdit();
+}
 </script>
 
 <template>
@@ -172,6 +180,7 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
         @group-unarchived="handleGroupUnarchived"
         @group-updated="handleGroupUpdated"
         @groups-order-updated="handleGroupsOrderUpdated"
+        @edit="handleEditGroup"
       />
     </div>
 
@@ -183,6 +192,7 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
       <!-- 分组信息卡片 -->
       <div class="group-info">
         <group-info-card
+          ref="groupInfoCardRef"
           :group="selectedGroup"
           @refresh="handleGroupRefresh"
           @delete="handleGroupDelete"
