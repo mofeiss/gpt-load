@@ -47,11 +47,11 @@ const menuOptions = computed(() => {
     type?: string;
   }> = [
     {
-      label: "编辑分组",
+      label: "编辑节点",
       key: "edit",
     },
     {
-      label: "复制分组",
+      label: "复制节点",
       key: "copy",
     },
     {
@@ -67,7 +67,7 @@ const menuOptions = computed(() => {
     });
   } else {
     options.push({
-      label: "归档分组",
+      label: "归档节点",
       key: "archive",
     });
   }
@@ -79,7 +79,7 @@ const menuOptions = computed(() => {
       type: "divider",
     },
     {
-      label: "删除分组",
+      label: "删除节点",
       key: "delete",
       style: {
         color: "red",
@@ -108,17 +108,17 @@ async function handleMenuSelect(key: string) {
       // 通过事件冒泡到父组件处理删除
       dialog.warning({
         title: "确认删除",
-        content: `确定要删除分组 "${props.group.display_name || props.group.name}" 吗？此操作不可撤销。`,
+        content: `确定要删除节点 "${props.group.display_name || props.group.name}" 吗？此操作不可撤销。`,
         positiveText: "确定删除",
         negativeText: "取消",
         onPositiveClick: async () => {
           try {
             isProcessing.value = true;
             if (!props.group.id) {
-              throw new Error("分组ID不能为空");
+              throw new Error("节点ID不能为空");
             }
             await keysApi.deleteGroup(props.group.id);
-            message.success("分组删除成功");
+            message.success("节点删除成功");
             // 通过事件通知父组件
             emit("delete", props.group);
             // 删除成功后刷新页面
@@ -126,8 +126,8 @@ async function handleMenuSelect(key: string) {
               window.location.reload();
             }, 1000);
           } catch (error) {
-            console.error("删除分组失败:", error);
-            message.error("删除分组失败");
+            console.error("删除节点失败:", error);
+            message.error("删除节点失败");
           } finally {
             isProcessing.value = false;
           }
@@ -155,14 +155,14 @@ async function archiveGroup() {
   try {
     isProcessing.value = true;
     if (!props.group.id) {
-      throw new Error("分组ID不能为空");
+      throw new Error("节点ID不能为空");
     }
     const updatedGroup = await keysApi.archiveGroup(props.group.id);
-    message.success("分组归档成功");
+    message.success("节点归档成功");
     emit("archived", updatedGroup);
   } catch (error) {
-    console.error("归档分组失败:", error);
-    message.error("归档分组失败");
+    console.error("归档节点失败:", error);
+    message.error("归档节点失败");
   } finally {
     isProcessing.value = false;
   }
@@ -176,14 +176,14 @@ async function unarchiveGroup() {
   try {
     isProcessing.value = true;
     if (!props.group.id) {
-      throw new Error("分组ID不能为空");
+      throw new Error("节点ID不能为空");
     }
     const updatedGroup = await keysApi.unarchiveGroup(props.group.id);
-    message.success("分组取消归档成功");
+    message.success("节点取消归档成功");
     emit("unarchived", updatedGroup);
   } catch (error) {
-    console.error("取消归档分组失败:", error);
-    message.error("取消归档分组失败");
+    console.error("取消归档节点失败:", error);
+    message.error("取消归档节点失败");
   } finally {
     isProcessing.value = false;
   }

@@ -255,7 +255,7 @@ function handleCopySuccess(newGroup: Group) {
     <n-card class="group-list-card modern-card" :bordered="false" size="small">
       <!-- 搜索框 -->
       <div class="search-section">
-        <n-input v-model:value="searchText" placeholder="搜索分组名称..." size="small" clearable>
+        <n-input v-model:value="searchText" placeholder="搜索节点名称..." size="small" clearable>
           <template #prefix>
             <n-icon :component="Search" />
           </template>
@@ -304,7 +304,7 @@ function handleCopySuccess(newGroup: Group) {
             <n-empty
               v-if="localActiveGroups.length === 0 && !loading"
               size="small"
-              :description="searchText ? '未找到匹配的分组' : '暂无分组'"
+              :description="searchText ? '未找到匹配的节点' : '暂无节点'"
               class="empty-container"
             />
           </div>
@@ -318,7 +318,7 @@ function handleCopySuccess(newGroup: Group) {
               <n-collapse-item name="archived" class="archived-collapse">
                 <template #header>
                   <div class="archived-header">
-                    <span class="archived-title">归档分组 ({{ localArchivedGroups.length }})</span>
+                    <span class="archived-title">归档节点 ({{ localArchivedGroups.length }})</span>
                   </div>
                 </template>
                 <vue-draggable-next
@@ -366,7 +366,7 @@ function handleCopySuccess(newGroup: Group) {
           <template #icon>
             <n-icon :component="Add" />
           </template>
-          创建分组
+          创建节点
         </n-button>
       </div>
     </n-card>
@@ -405,8 +405,7 @@ function handleCopySuccess(newGroup: Group) {
 }
 
 .groups-section::-webkit-scrollbar {
-  width: 1px;
-  height: 1px;
+  display: none;
 }
 
 .group-list-container {
@@ -536,26 +535,10 @@ function handleCopySuccess(newGroup: Group) {
   padding-top: 12px;
 }
 
-/* 滚动条样式 */
+/* 隐藏滚动条 */
 .groups-list::-webkit-scrollbar,
 .archived-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.groups-list::-webkit-scrollbar-track,
-.archived-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.groups-list::-webkit-scrollbar-thumb,
-.archived-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 2px;
-}
-
-.groups-list::-webkit-scrollbar-thumb:hover,
-.archived-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  display: none;
 }
 
 /* 归档分组样式 */
@@ -617,7 +600,11 @@ function handleCopySuccess(newGroup: Group) {
 }
 
 :deep(.archived-collapse .n-collapse-item__content-inner) {
-  padding-top: 8px;
+  /* padding-top: 8px; */
+}
+
+:deep(.n-collapse .n-collapse-item .n-collapse-item__content-wrapper .n-collapse-item__content-inner) {
+  padding-top: 0 !important;
 }
 
 /* 拖拽相关样式 */

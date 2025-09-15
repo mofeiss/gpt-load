@@ -843,19 +843,19 @@ function cancelEditingRemarks(key: KeyRow) {
           <template #icon>
             <n-icon :component="RefreshCircleOutline" />
           </template>
-          恢复无效
+          恢复
         </n-button>
         <n-button type="warning" size="small" @click="restoreAllDisabled()">
           <template #icon>
             <n-icon :component="RefreshOutline" />
           </template>
-          恢复暂停
+          启用
         </n-button>
         <n-button type="error" size="small" @click="disableAllKeys()">
           <template #icon>
             <n-icon :component="PauseCircleOutline" />
           </template>
-          暂停所有
+          停用
         </n-button>
       </div>
       <div class="toolbar-right">

@@ -4,13 +4,13 @@ import GlobalTaskProgressBar from "@/components/GlobalTaskProgressBar.vue";
 import Logout from "@/components/Logout.vue";
 import NavBar from "@/components/NavBar.vue";
 // 导入所有页面组件
+import CCR from "@/views/CCR.vue";
 import Dashboard from "@/views/Dashboard.vue";
 import Keys from "@/views/Keys.vue";
-import CCR from "@/views/CCR.vue";
 import Logs from "@/views/Logs.vue";
 import Settings from "@/views/Settings.vue";
 import { useMediaQuery } from "@vueuse/core";
-import { ref, watch, computed, onMounted } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 const isMenuOpen = ref(false);
