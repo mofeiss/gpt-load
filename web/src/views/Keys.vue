@@ -145,6 +145,7 @@ async function handleGroupsOrderUpdated(updatedGroups: Group[]) {
     id: g.id,
     sort: g.sort,
     archived: g.archived,
+    category_id: g.category_id, // 添加 category_id 字段，这是关键的分类关联数据
   }));
 
   // 3. 调用 API 更新
