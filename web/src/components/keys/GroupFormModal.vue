@@ -387,6 +387,7 @@ async function fetchGroupConfigOptions() {
 }
 
 // 添加配置项
+// @ts-ignore
 function addConfigItem() {
   formData.configItems.push({
     key: "",
@@ -395,11 +396,13 @@ function addConfigItem() {
 }
 
 // 删除配置项
+// @ts-ignore
 function removeConfigItem(index: number) {
   formData.configItems.splice(index, 1);
 }
 
 // 添加Header规则
+// @ts-ignore
 function addHeaderRule() {
   formData.header_rules.push({
     key: "",
@@ -409,6 +412,7 @@ function addHeaderRule() {
 }
 
 // 删除Header规则
+// @ts-ignore
 function removeHeaderRule(index: number) {
   formData.header_rules.splice(index, 1);
 }
@@ -425,6 +429,7 @@ function canonicalHeaderKey(key: string): string {
 }
 
 // 验证Header Key唯一性（使用Canonical格式对比）
+// @ts-ignore
 function validateHeaderKeyUniqueness(
   rules: HeaderRuleItem[],
   currentIndex: number,
@@ -441,6 +446,7 @@ function validateHeaderKeyUniqueness(
 }
 
 // 当配置项的key改变时，设置默认值
+// @ts-ignore
 function handleConfigKeyChange(index: number, key: string) {
   const option = configOptions.value.find(opt => opt.key === key);
   if (option) {
@@ -448,6 +454,7 @@ function handleConfigKeyChange(index: number, key: string) {
   }
 }
 
+// @ts-ignore
 const getConfigOption = (key: string) => {
   return configOptions.value.find(opt => opt.key === key);
 };

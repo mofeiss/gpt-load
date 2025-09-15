@@ -75,6 +75,7 @@ type Group struct {
 	LastValidatedAt    *time.Time           `json:"last_validated_at"`
 	Archived           bool                 `gorm:"default:false" json:"archived"`
 	ArchivedAt         *time.Time           `gorm:"null" json:"archived_at"`
+	CategoryID         *uint                `gorm:"null" json:"category_id"`
 	CreatedAt          time.Time            `json:"created_at"`
 	UpdatedAt          time.Time            `json:"updated_at"`
 
@@ -190,6 +191,15 @@ type ChartDataset struct {
 type ChartData struct {
 	Labels   []string       `json:"labels"`
 	Datasets []ChartDataset `json:"datasets"`
+}
+
+// Category 对应 categories 表，用于分组分类管理
+type Category struct {
+	ID        uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Name      string    `gorm:"type:varchar(255);not null" json:"name"`
+	Sort      int       `gorm:"default:0" json:"sort"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // GroupHourlyStat 对应 group_hourly_stats 表，用于存储每个分组每小时的请求统计

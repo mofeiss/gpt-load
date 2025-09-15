@@ -102,6 +102,16 @@ func registerPublicAPIRoutes(api *gin.RouterGroup, serverHandler *handler.Server
 func registerProtectedAPIRoutes(api *gin.RouterGroup, serverHandler *handler.Server) {
 	api.GET("/channel-types", serverHandler.CommonHandler.GetChannelTypes)
 
+	// 分类管理路由
+	categories := api.Group("/categories")
+	{
+		categories.POST("", serverHandler.CreateCategory)
+		categories.GET("", serverHandler.ListCategories)
+		categories.PUT("/:id", serverHandler.UpdateCategory)
+		categories.DELETE("/:id", serverHandler.DeleteCategory)
+		categories.PUT("/order", serverHandler.UpdateCategoriesOrder)
+	}
+
 	groups := api.Group("/groups")
 	{
 		groups.POST("", serverHandler.CreateGroup)

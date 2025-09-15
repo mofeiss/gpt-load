@@ -517,13 +517,14 @@ func (s *Server) UpdateGroup(c *gin.Context) {
 // UpdateGroupsOrderRequest defines the payload for updating groups order.
 type UpdateGroupsOrderRequest struct {
 	Groups []struct {
-		ID       uint `json:"id"`
-		Sort     int  `json:"sort"`
-		Archived bool `json:"archived"`
+		ID         uint  `json:"id"`
+		Sort       int   `json:"sort"`
+		Archived   bool  `json:"archived"`
+		CategoryID *uint `json:"category_id"`
 	} `json:"groups"`
 }
 
-// UpdateGroupsOrder handles batch updating of group sort order and archived status.
+// UpdateGroupsOrder handles batch updating of group sort order, archived status, and category assignment.
 func (s *Server) UpdateGroupsOrder(c *gin.Context) {
 	var req UpdateGroupsOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -548,6 +549,8 @@ func (s *Server) UpdateGroupsOrder(c *gin.Context) {
 
 		groupToUpdate.Sort = g.Sort
 		groupToUpdate.Archived = g.Archived
+		groupToUpdate.CategoryID = g.CategoryID
+
 		if g.Archived {
 			groupToUpdate.ArchivedAt = &now
 		} else {
@@ -595,6 +598,7 @@ type GroupResponse struct {
 	LastValidatedAt    *time.Time          `json:"last_validated_at"`
 	Archived           bool                `json:"archived"`
 	ArchivedAt         *time.Time          `json:"archived_at"`
+	CategoryID         *uint               `json:"category_id"`
 	CreatedAt          time.Time           `json:"created_at"`
 	UpdatedAt          time.Time           `json:"updated_at"`
 }
@@ -653,6 +657,7 @@ func (s *Server) newGroupResponse(group *models.Group) *GroupResponse {
 		LastValidatedAt:    group.LastValidatedAt,
 		Archived:           group.Archived,
 		ArchivedAt:         group.ArchivedAt,
+		CategoryID:         group.CategoryID,
 		CreatedAt:          group.CreatedAt,
 		UpdatedAt:          group.UpdatedAt,
 	}

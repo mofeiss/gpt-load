@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import type { Group } from "@/types/models";
+import type { Group, Category } from "@/types/models";
 import { keysApi } from "@/api/keys";
+import { categoriesApi } from "@/api/categories";
 import { NDropdown, useDialog, useMessage } from "naive-ui";
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 
 interface Props {
   group: Group;
@@ -30,6 +31,9 @@ const message = useMessage();
 // 加载状态
 const isProcessing = ref(false);
 
+// 分类数据
+const categories = ref<Category[]>([]);
+
 const showDropdown = computed({
   get: () => props.show,
   set: value => emit("update:show", value),
@@ -38,6 +42,15 @@ const showDropdown = computed({
 const dropdownX = computed(() => props.x);
 const dropdownY = computed(() => props.y);
 
+// 加载分类数据
+onMounted(async () => {
+  try {
+    categories.value = await categoriesApi.getCategories();
+  } catch (error) {
+    console.error("加载分类失败:", error);
+  }
+});
+
 const menuOptions = computed(() => {
   const options: Array<{
     label: string;
@@ -45,6 +58,11 @@ const menuOptions = computed(() => {
     icon?: () => string;
     style?: Record<string, string>;
     type?: string;
+    children?: Array<{
+      label: string;
+      key: string;
+      style?: Record<string, string>;
+    }>;
   }> = [
     {
       label: "编辑节点",
@@ -60,6 +78,37 @@ const menuOptions = computed(() => {
     },
   ];
 
+  // 添加移动到分类的子菜单
+  if (categories.value.length > 0) {
+    const moveToOptions = categories.value.map(category => ({
+      label: category.name,
+      key: `move-to-category-${category.id}`,
+    }));
+
+    // 如果当前不在归档中，添加"移动到归档"选项
+    if (!props.group.archived) {
+      moveToOptions.push({
+        label: "归档",
+        key: "move-to-archive",
+      });
+    }
+
+    // 如果当前已分类，添加"移动到未分类"选项
+    if (props.group.category_id) {
+      moveToOptions.unshift({
+        label: "未分类",
+        key: "move-to-uncategorized",
+      });
+    }
+
+    options.push({
+      label: "移动到",
+      key: "move-to",
+      children: moveToOptions,
+    });
+  }
+
+  // 添加归档/取消归档选项
   if (props.group.archived) {
     options.push({
       label: "取消归档",
@@ -97,6 +146,12 @@ function closeDropdown() {
 async function handleMenuSelect(key: string) {
   closeDropdown();
 
+  if (key.startsWith("move-to-category-")) {
+    const categoryId = parseInt(key.replace("move-to-category-", ""));
+    await moveToCategory(categoryId);
+    return;
+  }
+
   switch (key) {
     case "archive":
       await archiveGroup();
@@ -104,8 +159,13 @@ async function handleMenuSelect(key: string) {
     case "unarchive":
       await unarchiveGroup();
       break;
+    case "move-to-uncategorized":
+      await moveToCategory(null);
+      break;
+    case "move-to-archive":
+      await archiveGroup();
+      break;
     case "delete":
-      // 通过事件冒泡到父组件处理删除
       dialog.warning({
         title: "确认删除",
         content: `确定要删除节点 "${props.group.display_name || props.group.name}" 吗？此操作不可撤销。`,
@@ -119,9 +179,7 @@ async function handleMenuSelect(key: string) {
             }
             await keysApi.deleteGroup(props.group.id);
             message.success("节点删除成功");
-            // 通过事件通知父组件
             emit("delete", props.group);
-            // 删除成功后刷新页面
             setTimeout(() => {
               window.location.reload();
             }, 1000);
@@ -135,7 +193,6 @@ async function handleMenuSelect(key: string) {
       });
       break;
     case "refresh":
-      // 刷新事件通过父组件处理
       emit("group-updated", props.group);
       break;
     case "copy":
@@ -144,6 +201,41 @@ async function handleMenuSelect(key: string) {
     case "edit":
       emit("edit", props.group);
       break;
+  }
+}
+
+async function moveToCategory(categoryId: number | null) {
+  if (isProcessing.value) {
+    return;
+  }
+
+  try {
+    isProcessing.value = true;
+    if (!props.group.id) {
+      throw new Error("节点ID不能为空");
+    }
+
+    // 构建更新数据
+    const updateData = {
+      ...props.group,
+      category_id: categoryId,
+      archived: false, // 移动到分类时取消归档状态
+    };
+
+    const updatedGroups = [updateData];
+    await keysApi.updateGroupsOrder(updatedGroups);
+
+    const categoryName = categoryId
+      ? categories.value.find(c => c.id === categoryId)?.name || "分类"
+      : "未分类";
+
+    message.success(`已移动到${categoryName}`);
+    emit("group-updated", updateData);
+  } catch (error) {
+    console.error("移动节点失败:", error);
+    message.error("移动节点失败");
+  } finally {
+    isProcessing.value = false;
   }
 }
 
@@ -157,9 +249,28 @@ async function archiveGroup() {
     if (!props.group.id) {
       throw new Error("节点ID不能为空");
     }
-    const updatedGroup = await keysApi.archiveGroup(props.group.id);
-    message.success("节点归档成功");
-    emit("archived", updatedGroup);
+
+    // 找到名为 "archived" 的分类
+    const archivedCategory = categories.value.find(cat => cat.name === "archived");
+
+    if (archivedCategory) {
+      // 如果存在 archived 分类，移动到该分类
+      const updateData = {
+        ...props.group,
+        category_id: null, // 归档的组仍然使用 archived 字段而不是 category_id
+        archived: true,
+      };
+
+      const updatedGroups = [updateData];
+      await keysApi.updateGroupsOrder(updatedGroups);
+      message.success("节点已归档");
+      emit("archived", updateData);
+    } else {
+      // 如果没有 archived 分类，使用原有的归档 API
+      const updatedGroup = await keysApi.archiveGroup(props.group.id);
+      message.success("节点归档成功");
+      emit("archived", updatedGroup);
+    }
   } catch (error) {
     console.error("归档失败:", error);
     message.error("归档失败");
@@ -178,9 +289,18 @@ async function unarchiveGroup() {
     if (!props.group.id) {
       throw new Error("节点ID不能为空");
     }
-    const updatedGroup = await keysApi.unarchiveGroup(props.group.id);
+
+    // 取消归档就是移动到未分类
+    const updateData = {
+      ...props.group,
+      category_id: null,
+      archived: false,
+    };
+
+    const updatedGroups = [updateData];
+    await keysApi.updateGroupsOrder(updatedGroups);
     message.success("节点取消归档成功");
-    emit("unarchived", updatedGroup);
+    emit("unarchived", updateData);
   } catch (error) {
     console.error("取消归档失败:", error);
     message.error("取消归档失败");

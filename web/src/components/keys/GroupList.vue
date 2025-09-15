@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import type { Group } from "@/types/models";
+import type { Group, Category } from "@/types/models";
 import { getGroupDisplayName } from "@/utils/display";
 import { Add, Search } from "@vicons/ionicons5";
 import { NButton, NCard, NEmpty, NInput, NSpin, NTag, NCollapse, NCollapseItem } from "naive-ui";
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed, nextTick } from "vue";
+import { categoriesApi } from "@/api/categories";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupContextMenu from "./GroupContextMenu.vue";
 import GroupCopyModal from "./GroupCopyModal.vue";
+import CategoryFormModal from "./CategoryFormModal.vue";
+import CategoryContextMenu from "./CategoryContextMenu.vue";
 import { VueDraggableNext } from "vue-draggable-next";
 import { log, setupGlobalLogExporter } from "@/utils/debug-logger";
 
 // --- START: Persistence Logic ---
-const ARCHIVED_EXPANDED_STORAGE_KEY = "gpt-load-archived-expanded";
+const CATEGORIES_EXPANDED_STORAGE_KEY = "gpt-load-categories-expanded";
 // --- END: Persistence Logic ---
 
 interface Props {
@@ -42,87 +45,140 @@ const showGroupModal = ref(false);
 const showCopyModal = ref(false);
 const selectedGroupForCopy = ref<Group | null>(null);
 
+// 分类相关状态
+const categories = ref<Category[]>([]);
+const showCategoryModal = ref(false);
+const selectedCategoryForEdit = ref<Category | null>(null);
+
 // --- NEW DRAGGABLE STATE MANAGEMENT ---
-const localActiveGroups = ref<Group[]>([]);
-const localArchivedGroups = ref<Group[]>([]);
+const localUncategorizedGroups = ref<Group[]>([]);
+const localCategoryGroups = ref<Record<number, Group[]>>({});
 
-// Watch for prop changes to update local state
-watch(
-  () => props.groups,
-  newGroups => {
-    log(
-      "Props changed, updating local draggable lists",
-      newGroups.map(g => ({ id: g.id, name: g.name, archived: g.archived }))
-    );
-    const filtered = newGroups.filter(group => {
-      if (!searchText.value) {
-        return true;
-      }
-      const search = searchText.value.toLowerCase();
-      return (
-        group.name.toLowerCase().includes(search) ||
-        (group.display_name && group.display_name.toLowerCase().includes(search))
-      );
-    });
-    localActiveGroups.value = filtered.filter(g => !g.archived);
-    localArchivedGroups.value = filtered.filter(g => g.archived);
-  },
-  { immediate: true, deep: true }
-);
-
-// Watch for search text changes to update local state
-watch(searchText, () => {
-  const filtered = props.groups.filter(group => {
-    if (!searchText.value) {
-      return true;
-    }
-    const search = searchText.value.toLowerCase();
+// 过滤和分组逻辑
+const filteredGroups = computed(() => {
+  if (!searchText.value) {
+    return props.groups;
+  }
+  const search = searchText.value.toLowerCase();
+  return props.groups.filter(group => {
     return (
       group.name.toLowerCase().includes(search) ||
       (group.display_name && group.display_name.toLowerCase().includes(search))
     );
   });
-  localActiveGroups.value = filtered.filter(g => !g.archived);
-  localArchivedGroups.value = filtered.filter(g => g.archived);
 });
 
-// This function is now only called ONCE at the end of the drag
+// 排序后的分类列表（归档分类固定在最后）
+const sortedCategories = computed(() => {
+  const archivedCategory = categories.value.find(cat => cat.name === "archived");
+  const otherCategories = categories.value.filter(cat => cat.name !== "archived");
+
+  // 其他分类按 sort 排序，归档分类固定在最后
+  return [...otherCategories.sort((a, b) => a.sort - b.sort), ...(archivedCategory ? [archivedCategory] : [])];
+});
+
+// 监听 props 变化，更新本地状态
+watch(
+  [filteredGroups, categories],
+  ([newGroups, newCategories]) => {
+    log(
+      "Groups or categories changed, updating local draggable lists",
+      newGroups.map(g => ({ id: g.id, name: g.name, archived: g.archived, category_id: g.category_id }))
+    );
+
+    // 分类未分类的组（category_id 为 null 且 archived 为 false）
+    localUncategorizedGroups.value = newGroups.filter(g => !g.category_id && !g.archived);
+
+    // 按分类分组
+    const categoryGroupsMap: Record<number, Group[]> = {};
+    newCategories.forEach(cat => {
+      if (cat.name === "archived") {
+        // 归档分类包含：有 category_id 指向该分类的组 + archived=true 的组
+        categoryGroupsMap[cat.id] = [
+          ...newGroups.filter(g => g.category_id === cat.id),
+          ...newGroups.filter(g => g.archived && !g.category_id)
+        ];
+      } else {
+        // 其他分类只包含明确指定 category_id 的组
+        categoryGroupsMap[cat.id] = newGroups.filter(g => g.category_id === cat.id);
+      }
+    });
+
+    // 确保所有分类都有数组，即使是空的
+    newCategories.forEach(cat => {
+      if (!categoryGroupsMap[cat.id]) {
+        categoryGroupsMap[cat.id] = [];
+      }
+    });
+
+    localCategoryGroups.value = categoryGroupsMap;
+  },
+  { immediate: true, deep: true }
+);
+
+// 监听搜索文本变化
+watch(searchText, () => {
+  // filteredGroups 的计算属性会自动触发上面的 watch
+});
+
+// 拖拽结束处理
 function handleDragEnd() {
   log("handleDragEnd triggered. Processing final state.");
 
-  const active = localActiveGroups.value;
-  const archived = localArchivedGroups.value;
+  const uncategorized = localUncategorizedGroups.value;
+  const allCategoryGroups = Object.values(localCategoryGroups.value).flat();
 
   log("Final list state", {
-    active: active.map(g => ({ id: g.id, name: g.name })),
-    archived: archived.map(g => ({ id: g.id, name: g.name })),
+    uncategorized: uncategorized.map(g => ({ id: g.id, name: g.name })),
+    categorized: allCategoryGroups.map(g => ({ id: g.id, name: g.name, category_id: g.category_id })),
   });
 
-  const activeWithState = active.map((group, index) => ({
-    ...group,
-    archived: false,
-    sort: index,
-  }));
-  log(
-    "Calculated final active groups with new state",
-    activeWithState.map(g => ({ id: g.id, name: g.name, archived: g.archived, sort: g.sort }))
-  );
+  // 构建最终的组列表
+  let sortIndex = 0;
+  const finalPayload: Group[] = [];
 
-  const archivedWithState = archived.map((group, index) => ({
-    ...group,
-    archived: true,
-    sort: active.length + index,
-  }));
-  log(
-    "Calculated final archived groups with new state",
-    archivedWithState.map(g => ({ id: g.id, name: g.name, archived: g.archived, sort: g.sort }))
-  );
+  // 未分类的组
+  uncategorized.forEach(group => {
+    finalPayload.push({
+      ...group,
+      category_id: null,
+      archived: false,
+      sort: sortIndex++,
+    });
+  });
 
-  const finalPayload = [...activeWithState, ...archivedWithState];
-  log(
-    "Emitting SINGLE 'groups-order-updated' with final payload",
-    finalPayload.map(g => ({ id: g.id, name: g.name, archived: g.archived, sort: g.sort }))
-  );
+  // 分类的组
+  sortedCategories.value.forEach(category => {
+    const categoryGroups = localCategoryGroups.value[category.id] || [];
+    categoryGroups.forEach(group => {
+      if (category.name === "archived") {
+        // 归档分类中的组保持 archived=true 状态
+        finalPayload.push({
+          ...group,
+          category_id: null, // 归档组不设置 category_id，通过 archived 字段标识
+          archived: true,
+          sort: sortIndex++,
+        });
+      } else {
+        // 其他分类的组
+        finalPayload.push({
+          ...group,
+          category_id: category.id,
+          archived: false,
+          sort: sortIndex++,
+        });
+      }
+    });
+  });
+
+  log("Emitting SINGLE 'groups-order-updated' with final payload", finalPayload.map(g => ({
+    id: g.id,
+    name: g.name,
+    archived: g.archived,
+    category_id: g.category_id,
+    sort: g.sort
+  })));
+
   emit("groups-order-updated", finalPayload);
 }
 // --- END OF NEW DRAGGABLE STATE MANAGEMENT ---
@@ -140,32 +196,72 @@ const contextMenuData = ref<{
   group: null,
 });
 
-// 归档列表展开状态
-const archivedExpanded = ref(false);
-const archivedExpandedArray = ref<string[]>([]);
+// 分类右键菜单状态
+const categoryContextMenuData = ref<{
+  show: boolean;
+  x: number;
+  y: number;
+  category: Category | null;
+}>({
+  show: false,
+  x: 0,
+  y: 0,
+  category: null,
+});
+
+// 空白区域右键菜单状态
+const blankContextMenuData = ref<{
+  show: boolean;
+  x: number;
+  y: number;
+}>({
+  show: false,
+  x: 0,
+  y: 0,
+});
+
+// 展开状态管理 - 只保留分类展开状态
+const categoryExpandedArray = ref<string[]>([]);
 
 // 初始化
-onMounted(() => {
+onMounted(async () => {
   setupGlobalLogExporter();
+
+  // 加载分类数据
+  await loadCategories();
+
   // --- START: Persistence Logic ---
-  const savedState = localStorage.getItem(ARCHIVED_EXPANDED_STORAGE_KEY);
-  if (savedState !== null) {
-    archivedExpanded.value = JSON.parse(savedState);
+  const savedCategoriesState = localStorage.getItem(CATEGORIES_EXPANDED_STORAGE_KEY);
+  if (savedCategoriesState !== null) {
+    // 从保存的状态中恢复展开的分类
+    const savedMap: Record<number, boolean> = JSON.parse(savedCategoriesState);
+    const expandedIds = Object.keys(savedMap).filter(id => savedMap[parseInt(id)]);
+    categoryExpandedArray.value = expandedIds.map(id => `category-${id}`);
   }
   // --- END: Persistence Logic ---
 });
 
-// 同步展开状态并持久化
-watch(archivedExpanded, newValue => {
-  archivedExpandedArray.value = newValue ? ["archived"] : [];
-  // --- START: Persistence Logic ---
-  localStorage.setItem(ARCHIVED_EXPANDED_STORAGE_KEY, JSON.stringify(newValue));
-  // --- END: Persistence Logic ---
-});
+// 加载分类数据
+async function loadCategories() {
+  try {
+    const newCategories = await categoriesApi.getCategories();
 
-// 监听数组变化来更新展开状态
-watch(archivedExpandedArray, newValue => {
-  archivedExpanded.value = newValue.includes("archived");
+    // 使用 nextTick 避免在 watch 回调中立即触发响应式更新
+    await nextTick();
+    categories.value = newCategories;
+  } catch (error) {
+    console.error("加载分类失败:", error);
+  }
+}
+
+// 同步分类展开状态 - 简化逻辑，只监听数组变化并持久化
+watch(categoryExpandedArray, newValue => {
+  // 转换为 map 格式进行持久化
+  const mapForStorage: Record<number, boolean> = {};
+  categories.value.forEach(cat => {
+    mapForStorage[cat.id] = newValue.includes(`category-${cat.id}`);
+  });
+  localStorage.setItem(CATEGORIES_EXPANDED_STORAGE_KEY, JSON.stringify(mapForStorage));
 });
 
 function handleGroupClick(group: Group) {
@@ -180,6 +276,27 @@ function handleContextMenu(event: MouseEvent, group: Group) {
     x: event.clientX,
     y: event.clientY,
     group,
+  };
+}
+
+// 分类右键菜单处理
+function handleCategoryContextMenu(event: MouseEvent, category: Category) {
+  event.preventDefault();
+  categoryContextMenuData.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY,
+    category,
+  };
+}
+
+// 空白区域右键菜单处理
+function handleBlankContextMenu(event: MouseEvent) {
+  event.preventDefault();
+  blankContextMenuData.value = {
+    show: true,
+    x: event.clientX,
+    y: event.clientY,
   };
 }
 
@@ -214,7 +331,6 @@ function openCreateGroupModal() {
 function handleGroupCreated(group: Group) {
   showGroupModal.value = false;
   if (group && group.id) {
-    // 创建成功后，通知父组件刷新并切换到新创建的分组
     emit("refresh-and-select", group.id);
   }
 }
@@ -227,9 +343,7 @@ function handleCopyGroup(group: Group) {
 
 // 处理编辑分组
 function handleEditGroup(group: Group) {
-  // 先选择该分组，然后通知父组件进入编辑模式
   emit("group-select", group);
-  // 直接发出编辑事件，由父组件处理编辑模式切换
   emit("edit", group);
 }
 
@@ -237,15 +351,59 @@ function handleEditGroup(group: Group) {
 function handleCopySuccess(newGroup: Group) {
   showCopyModal.value = false;
   selectedGroupForCopy.value = null;
-  // 通知父组件刷新并切换到新创建的分组
   if (newGroup.id) {
     emit("refresh-and-select", newGroup.id);
   }
 }
+
+// 分类相关处理函数
+function openCreateCategoryModal() {
+  selectedCategoryForEdit.value = null;
+  showCategoryModal.value = true;
+}
+
+function handleEditCategory(category: Category) {
+  selectedCategoryForEdit.value = category;
+  showCategoryModal.value = true;
+}
+
+async function handleCategoryUpdated() {
+  // 重新加载分类数据，但不立即更新 categories.value
+  try {
+    const newCategories = await categoriesApi.getCategories();
+
+    // 使用 nextTick 确保在下一个 tick 更新
+    await nextTick();
+    categories.value = newCategories;
+
+    // 延迟发射 refresh 事件
+    await nextTick();
+    emit("refresh");
+  } catch (error) {
+    console.error("更新分类失败:", error);
+  }
+}
+
+// 为分类组提供安全的双向绑定
+function getCategoryGroups(categoryId: number) {
+  return localCategoryGroups.value[categoryId] || [];
+}
+
+function setCategoryGroups(categoryId: number, groups: Group[]) {
+  if (!localCategoryGroups.value[categoryId]) {
+    localCategoryGroups.value[categoryId] = [];
+  }
+  localCategoryGroups.value[categoryId] = groups;
+}
+
+function handleCategoryCreatedOrUpdated() {
+  showCategoryModal.value = false;
+  handleCategoryUpdated();
+}
 </script>
 
 <template>
-  <div class="group-list-container">
+  <div class="group-list-container" @contextmenu="handleBlankContextMenu">
     <n-card class="group-list-card modern-card" :bordered="false" size="small">
       <!-- 搜索框 -->
       <div class="search-section">
@@ -259,10 +417,10 @@ function handleCopySuccess(newGroup: Group) {
       <!-- 分组列表 -->
       <div class="groups-section">
         <n-spin :show="loading" size="small">
-          <!-- 常驻分组容器 -->
-          <div class="active-groups-container">
+          <!-- 未分类分组容器 -->
+          <div class="uncategorized-groups-container">
             <vue-draggable-next
-              v-model="localActiveGroups"
+              v-model="localUncategorizedGroups"
               class="groups-list"
               group="groups"
               :animation="150"
@@ -271,7 +429,7 @@ function handleCopySuccess(newGroup: Group) {
               @end="handleDragEnd"
             >
               <div
-                v-for="group in localActiveGroups"
+                v-for="group in localUncategorizedGroups"
                 :key="group.id"
                 class="group-item"
                 :class="{ active: selectedGroup?.id === group.id }"
@@ -296,28 +454,39 @@ function handleCopySuccess(newGroup: Group) {
               </div>
             </vue-draggable-next>
             <n-empty
-              v-if="localActiveGroups.length === 0 && !loading"
+              v-if="localUncategorizedGroups.length === 0 && !loading"
               size="small"
               :description="searchText ? '未找到匹配的节点' : '暂无节点'"
               class="empty-container"
             />
           </div>
 
-          <!-- 归档分组容器 -->
-          <div
-            v-if="localArchivedGroups.length > 0 || searchText"
-            class="archived-groups-container"
-          >
-            <n-collapse v-model:expanded-names="archivedExpandedArray">
-              <n-collapse-item name="archived" class="archived-collapse">
+          <!-- 分类分组容器 -->
+          <div v-if="categories.length > 0" class="categorized-groups-container">
+            <n-collapse v-model:expanded-names="categoryExpandedArray">
+              <!-- 所有分类，包括归档分类 -->
+              <n-collapse-item
+                v-for="category in sortedCategories"
+                :key="category.id"
+                :name="`category-${category.id}`"
+                :class="category.name === 'archived' ? 'archived-collapse' : 'category-collapse'"
+              >
                 <template #header>
-                  <div class="archived-header">
-                    <span class="archived-title">归档 ({{ localArchivedGroups.length }})</span>
+                  <div
+                    :class="category.name === 'archived' ? 'archived-header' : 'category-header'"
+                    @contextmenu="handleCategoryContextMenu($event, category)"
+                  >
+                    <span
+                      :class="category.name === 'archived' ? 'archived-title' : 'category-title'"
+                    >
+                      {{ category.name === 'archived' ? '归档' : category.name }} ({{ (localCategoryGroups[category.id] || []).length }})
+                    </span>
                   </div>
                 </template>
                 <vue-draggable-next
-                  v-model="localArchivedGroups"
-                  class="archived-list"
+                  :model-value="getCategoryGroups(category.id)"
+                  @update:model-value="(groups: Group[]) => setCategoryGroups(category.id, groups)"
+                  :class="category.name === 'archived' ? 'archived-list' : 'category-list'"
                   group="groups"
                   :animation="150"
                   ghost-class="sortable-ghost"
@@ -325,20 +494,33 @@ function handleCopySuccess(newGroup: Group) {
                   @end="handleDragEnd"
                 >
                   <div
-                    v-for="group in localArchivedGroups"
+                    v-for="group in localCategoryGroups[category.id] || []"
                     :key="group.id"
-                    class="group-item archived-item"
-                    :class="{ active: selectedGroup?.id === group.id }"
+                    :class="[
+                      'group-item',
+                      category.name === 'archived' ? 'archived-item' : 'categorized-item',
+                      { active: selectedGroup?.id === group.id }
+                    ]"
                     @click="handleGroupClick(group)"
                     @contextmenu="handleContextMenu($event, group)"
                   >
-                    <div class="group-icon archived-icon">
+                    <div
+                      :class="[
+                        'group-icon',
+                        category.name === 'archived' ? 'archived-icon' : 'categorized-icon'
+                      ]"
+                    >
                       <span v-if="group.channel_type === 'openai'">🤖</span>
                       <span v-else-if="group.channel_type === 'gemini'">💎</span>
                       <span v-else-if="group.channel_type === 'anthropic'">🧠</span>
                       <span v-else>🔧</span>
                     </div>
-                    <div class="group-content archived-content">
+                    <div
+                      :class="[
+                        'group-content',
+                        category.name === 'archived' ? 'archived-content' : 'categorized-content'
+                      ]"
+                    >
                       <div class="group-name">{{ getGroupDisplayName(group) }}</div>
                       <div class="group-meta">
                         <n-tag size="tiny" :type="getChannelTagType(group.channel_type)">
@@ -365,7 +547,7 @@ function handleCopySuccess(newGroup: Group) {
       </div>
     </n-card>
 
-    <!-- 右键菜单 -->
+    <!-- 分组右键菜单 -->
     <group-context-menu
       v-if="contextMenuData.group"
       v-model:show="contextMenuData.show"
@@ -380,13 +562,44 @@ function handleCopySuccess(newGroup: Group) {
       @edit="handleEditGroup"
     />
 
+    <!-- 分类右键菜单 -->
+    <category-context-menu
+      v-if="categoryContextMenuData.category"
+      v-model:show="categoryContextMenuData.show"
+      :x="categoryContextMenuData.x"
+      :y="categoryContextMenuData.y"
+      :category="categoryContextMenuData.category"
+      @edit="handleEditCategory"
+      @category-updated="handleCategoryUpdated"
+    />
+
+    <!-- 空白区域右键菜单 -->
+    <n-dropdown
+      v-if="blankContextMenuData.show"
+      :options="[{ label: '增加分类', key: 'add-category' }]"
+      :show="blankContextMenuData.show"
+      :x="blankContextMenuData.x"
+      :y="blankContextMenuData.y"
+      placement="bottom-start"
+      @clickoutside="blankContextMenuData.show = false"
+      @select="(key: string) => { if (key === 'add-category') openCreateCategoryModal(); blankContextMenuData.show = false; }"
+    />
+
+    <!-- 分组创建/编辑模态框 -->
     <group-form-modal v-model:show="showGroupModal" @success="handleGroupCreated" />
 
-    <!-- 复制分组模态框 -->
+    <!-- 分组复制模态框 -->
     <group-copy-modal
       v-model:show="showCopyModal"
       :source-group="selectedGroupForCopy"
       @success="handleCopySuccess"
+    />
+
+    <!-- 分类创建/编辑模态框 -->
+    <category-form-modal
+      v-model:show="showCategoryModal"
+      :category="selectedCategoryForEdit"
+      @success="handleCategoryCreatedOrUpdated"
     />
   </div>
 </template>
@@ -431,12 +644,12 @@ function handleCopySuccess(newGroup: Group) {
   padding: 20px 0;
 }
 
-.active-groups-container {
+.uncategorized-groups-container {
   display: flex;
   flex-direction: column;
 }
 
-.archived-groups-container {
+.categorized-groups-container {
   display: flex;
   flex-direction: column;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -444,6 +657,7 @@ function handleCopySuccess(newGroup: Group) {
 }
 
 .groups-list,
+.category-list,
 .archived-list {
   display: flex;
   flex-direction: column;
@@ -531,12 +745,65 @@ function handleCopySuccess(newGroup: Group) {
 
 /* 隐藏滚动条 */
 .groups-list::-webkit-scrollbar,
+.category-list::-webkit-scrollbar,
 .archived-list::-webkit-scrollbar {
   display: none;
 }
 
-/* 归档分组样式 */
+/* 分类样式 */
+.category-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
+.category-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4f46e5;
+}
+
+.categorized-item {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.categorized-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  background: rgba(79, 70, 229, 0.1);
+}
+
+.categorized-content {
+  gap: 2px;
+}
+
+.categorized-item .group-name {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.categorized-item .group-meta {
+  font-size: 9px;
+}
+
+.categorized-item:hover {
+  background: rgba(79, 70, 229, 0.1);
+  border-color: rgba(79, 70, 229, 0.2);
+}
+
+.categorized-item.active {
+  background: rgba(79, 70, 229, 0.2);
+  color: #4338ca;
+  border-color: rgba(79, 70, 229, 0.3);
+}
+
+.categorized-item.active .categorized-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* 归档分组样式 */
 .archived-header {
   display: flex;
   align-items: center;
@@ -593,6 +860,10 @@ function handleCopySuccess(newGroup: Group) {
   padding: 8px 0;
 }
 
+:deep(.category-collapse .n-collapse-item__header) {
+  padding: 8px 0;
+}
+
 :deep(
   .n-collapse .n-collapse-item .n-collapse-item__content-wrapper .n-collapse-item__content-inner
 ) {
@@ -628,6 +899,7 @@ function handleCopySuccess(newGroup: Group) {
 }
 
 .groups-list > div,
+.category-list > div,
 .archived-list > div {
   transition: transform 0.2s ease-out;
 }
