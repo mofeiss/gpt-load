@@ -1079,26 +1079,63 @@ defineExpose({
 
 :deep(.n-input) {
   --n-border-radius: 6px;
+  --n-height: 28px;
+}
+
+/* 强制调整输入框高度 */
+:deep(.n-input .n-input__input-el) {
+  height: 28px !important;
+  min-height: 28px !important;
+}
+
+:deep(.n-input .n-input-wrapper) {
+  min-height: 28px !important;
 }
 
 :deep(.n-select) {
   --n-border-radius: 6px;
+  --n-height: 28px;
+}
+
+/* 强制调整选择框高度 */
+:deep(.n-select .n-base-selection) {
+  min-height: 28px !important;
+}
+
+:deep(.n-select .n-base-selection .n-base-selection-label) {
+  height: 28px !important;
+  min-height: 28px !important;
 }
 
 :deep(.n-input-number) {
   --n-border-radius: 6px;
+  --n-height: 28px;
+}
+
+/* 强制调整数字输入框高度 */
+:deep(.n-input-number .n-input) {
+  min-height: 28px !important;
+}
+
+:deep(.n-input-number .n-input .n-input__input-el) {
+  height: 28px !important;
+  min-height: 28px !important;
+}
+
+:deep(.n-input-number .n-input .n-input-wrapper) {
+  min-height: 28px !important;
 }
 
 :deep(.n-form-item) {
-  margin-bottom: 16px;
+  margin-bottom: 5px;
 }
 
 :deep(.n-form-item-feedback-wrapper) {
-  min-height: 10px;
+  min-height: 3px;
 }
 
 .config-section {
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .config-title {
@@ -1275,7 +1312,7 @@ defineExpose({
 
 /* 配置项行布局 */
 .config-item-row {
-  margin-bottom: 12px;
+  margin-bottom: 3px;
 }
 
 .config-item-content {
@@ -1338,7 +1375,7 @@ defineExpose({
 
 /* Header规则相关样式 */
 .header-rule-row {
-  margin-bottom: 12px;
+  margin-bottom: 3px;
 }
 
 .header-rule-content {
@@ -1357,7 +1394,7 @@ defineExpose({
   flex: 1;
   display: flex;
   align-items: center;
-  min-height: 34px;
+  min-height: 28px;
 }
 
 .header-value.removed-placeholder {
@@ -1379,7 +1416,7 @@ defineExpose({
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 34px;
+  height: 28px;
 }
 
 .header-actions {
@@ -1387,7 +1424,7 @@ defineExpose({
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  height: 34px;
+  height: 28px;
 }
 
 .error-message {

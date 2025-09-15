@@ -1431,6 +1431,15 @@ defineExpose({
   min-height: 0;
 }
 
+/* 详细信息标签页查看模式下的表单紧凑样式 */
+.tab-content :deep(.n-form-item) {
+  margin-bottom: 3px;
+}
+
+.tab-content :deep(.n-form-item-feedback-wrapper) {
+  min-height: 0;
+}
+
 /* 分组描述区域样式 */
 .group-description-section {
   margin: 12px 0;
@@ -1730,7 +1739,7 @@ defineExpose({
 }
 
 .tab-content {
-  padding: 16px 0;
+  padding: 4px 0;
 }
 
 .no-advanced-config {
