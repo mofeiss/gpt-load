@@ -570,7 +570,7 @@ function handleCategoryCreatedOrUpdated() {
           <div class="uncategorized-groups-container">
             <vue-draggable-next
               v-model="localUncategorizedGroups"
-              class="groups-list"
+              class="groups-list-with-empty"
               group="groups"
               :animation="150"
               ghost-class="sortable-ghost"
@@ -601,13 +601,14 @@ function handleCategoryCreatedOrUpdated() {
                   </div>
                 </div>
               </div>
+              <!-- 空状态放在拖拽容器内，这样拖拽到这里也能响应 -->
+              <n-empty
+                v-if="localUncategorizedGroups.length === 0 && !loading"
+                size="small"
+                :description="searchText ? '未找到匹配的节点' : '暂无节点'"
+                class="empty-container drag-responsive"
+              />
             </vue-draggable-next>
-            <n-empty
-              v-if="localUncategorizedGroups.length === 0 && !loading"
-              size="small"
-              :description="searchText ? '未找到匹配的节点' : '暂无节点'"
-              class="empty-container"
-            />
           </div>
 
           <!-- 分类分组容器 -->
@@ -809,11 +810,26 @@ function handleCategoryCreatedOrUpdated() {
 }
 
 .groups-list,
+.groups-list-with-empty,
 .category-list,
 .archived-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* 确保拖拽容器占据完整高度，空状态也能响应拖拽 */
+.groups-list-with-empty {
+  min-height: 80px; /* 最小高度确保有足够空间进行拖拽 */
+}
+
+/* 空状态在拖拽容器内的样式调整 */
+.empty-container.drag-responsive {
+  padding: 20px 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .group-item {
@@ -897,6 +913,7 @@ function handleCategoryCreatedOrUpdated() {
 
 /* 隐藏滚动条 */
 .groups-list::-webkit-scrollbar,
+.groups-list-with-empty::-webkit-scrollbar,
 .category-list::-webkit-scrollbar,
 .archived-list::-webkit-scrollbar {
   display: none;
