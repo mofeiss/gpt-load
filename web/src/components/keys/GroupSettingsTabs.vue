@@ -494,7 +494,7 @@ async function handleSubmit() {
       <div class="tabs-nav-area">
         <!-- 保存按钮覆盖在占位tab上 -->
         <div class="top-right-save-button">
-          <n-button type="primary" @click="handleSubmit" :loading="loading" size="medium">
+          <n-button type="primary" @click="handleSubmit" :loading="loading" size="small">
             保存设置
           </n-button>
         </div>

@@ -6,8 +6,6 @@ import type { Group, GroupConfigOption, UpstreamInfo } from "@/types/models";
 import { Add, HelpCircleOutline, Remove } from "@vicons/ionicons5";
 import {
   NButton,
-  NCollapse,
-  NCollapseItem,
   NForm,
   NFormItem,
   NIcon,
@@ -23,6 +21,7 @@ import { computed, reactive, ref, watch } from "vue";
 
 interface Props {
   group?: Group | null;
+  section?: "basic" | "upstream" | "advanced" | "all";
 }
 
 interface Emits {
@@ -45,6 +44,7 @@ interface HeaderRuleItem {
 
 const props = withDefaults(defineProps<Props>(), {
   group: null,
+  section: "all",
 });
 
 const emit = defineEmits<Emits>();
@@ -107,6 +107,19 @@ const globalBlacklistThreshold = ref<number>(3); // 默认值
 const userModifiedFields = ref({
   test_model: false,
   upstream: false,
+});
+
+// 控制各个分区的显示
+const shouldShowBasicSection = computed(() => {
+  return props.section === "all" || props.section === "basic";
+});
+
+const shouldShowUpstreamSection = computed(() => {
+  return props.section === "all" || props.section === "upstream";
+});
+
+const shouldShowAdvancedSection = computed(() => {
+  return props.section === "all" || props.section === "advanced";
 });
 
 // 根据渠道类型动态生成占位符提示
@@ -497,9 +510,7 @@ async function handleSubmit() {
       class="settings-form"
     >
       <!-- 基础信息 -->
-      <div class="form-section">
-        <h4 class="section-title">基础信息</h4>
-
+      <div class="form-section" v-if="shouldShowBasicSection">
         <!-- 分组名称和显示名称在同一行 -->
         <div class="form-row">
           <n-form-item label="分组名称" path="name" class="form-item-half">
@@ -701,8 +712,7 @@ async function handleSubmit() {
       </div>
 
       <!-- 上游地址 -->
-      <div class="form-section" style="margin-top: 10px">
-        <h4 class="section-title">上游地址</h4>
+      <div class="form-section" style="margin-top: 10px" v-if="shouldShowUpstreamSection">
         <n-form-item
           v-for="(upstream, index) in formData.upstreams"
           :key="index"
@@ -775,258 +785,256 @@ async function handleSubmit() {
       </div>
 
       <!-- 高级配置 -->
-      <div class="form-section" style="margin-top: 10px">
-        <n-collapse>
-          <n-collapse-item name="advanced">
-            <template #header>高级配置</template>
-            <div class="config-section">
-              <h5 class="config-title-with-tooltip">
-                分组配置
+      <div class="form-section" style="margin-top: 10px" v-if="shouldShowAdvancedSection">
+        <div class="config-section">
+          <h5 class="config-title-with-tooltip">
+            分组配置
+            <n-tooltip trigger="hover" placement="top">
+              <template #trigger>
+                <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
+              </template>
+              针对此分组的专用配置参数，如超时时间、重试次数等。这些配置会覆盖全局默认设置
+            </n-tooltip>
+          </h5>
+
+          <div class="config-items">
+            <n-form-item
+              v-for="(configItem, index) in formData.configItems"
+              :key="index"
+              class="config-item-row"
+              :label="`配置 ${index + 1}`"
+              :path="`configItems[${index}].key`"
+              :rule="{
+                required: true,
+                message: '',
+                trigger: ['blur', 'change'],
+              }"
+            >
+              <template #label>
+                <div class="form-label-with-tooltip">
+                  配置 {{ index + 1 }}
+                  <n-tooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <n-icon :component="HelpCircleOutline" class="help-icon" />
+                    </template>
+                    选择要配置的参数类型，然后设置对应的数值。不同参数有不同的作用和取值范围
+                  </n-tooltip>
+                </div>
+              </template>
+              <div class="config-item-content">
+                <div class="config-select">
+                  <n-select
+                    v-model:value="configItem.key"
+                    :options="
+                      configOptions
+                        .filter(opt => opt.key !== 'blacklist_threshold')
+                        .map(opt => ({
+                          label: opt.name,
+                          value: opt.key,
+                          disabled:
+                            formData.configItems
+                              .map((item: ConfigItem) => item.key)
+                              ?.includes(opt.key) && opt.key !== configItem.key,
+                        }))
+                    "
+                    placeholder="请选择配置参数"
+                    @update:value="value => handleConfigKeyChange(index, value)"
+                    clearable
+                  />
+                </div>
+                <div class="config-value">
+                  <n-tooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <n-input-number
+                        v-if="typeof configItem.value === 'number'"
+                        v-model:value="configItem.value"
+                        placeholder="参数值"
+                        :precision="0"
+                        style="width: 100%"
+                      />
+                      <n-switch
+                        v-else-if="typeof configItem.value === 'boolean'"
+                        v-model:value="configItem.value"
+                        size="small"
+                      />
+                      <n-input v-else v-model:value="configItem.value" placeholder="参数值" />
+                    </template>
+                    {{ getConfigOption(configItem.key)?.description || "设置此配置项的值" }}
+                  </n-tooltip>
+                </div>
+                <div class="config-actions">
+                  <n-button
+                    @click="removeConfigItem(index)"
+                    type="error"
+                    quaternary
+                    circle
+                    size="small"
+                  >
+                    <template #icon>
+                      <n-icon :component="Remove" />
+                    </template>
+                  </n-button>
+                </div>
+              </div>
+            </n-form-item>
+          </div>
+
+          <div style="margin-top: 12px; padding-left: 120px">
+            <n-button
+              @click="addConfigItem"
+              dashed
+              style="width: 100%"
+              :disabled="formData.configItems.length >= configOptions.length - 1"
+            >
+              <template #icon>
+                <n-icon :component="Add" />
+              </template>
+              添加配置参数
+            </n-button>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h5 class="config-title-with-tooltip">
+            自定义请求头
+            <n-tooltip trigger="hover" placement="top">
+              <template #trigger>
+                <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
+              </template>
+              <div>
+                在代理请求转发至上游服务前，对 HTTP 请求头进行添加、覆盖或移除操作。
+                <br />
+                支持动态变量：
+                <br />
+                • ${CLIENT_IP} - 客户端IP地址
+                <br />
+                • ${GROUP_NAME} - 分组名称
+                <br />
+                • ${API_KEY} - 当前轮询的API密钥
+                <br />
+                • ${TIMESTAMP_MS} - 毫秒时间戳
+                <br />
+                • ${TIMESTAMP_S} - 秒时间戳
+              </div>
+            </n-tooltip>
+          </h5>
+
+          <div class="header-rules-items">
+            <n-form-item
+              v-for="(headerRule, index) in formData.header_rules"
+              :key="index"
+              class="header-rule-row"
+              :label="`请求头 ${index + 1}`"
+            >
+              <template #label>
+                <div class="form-label-with-tooltip">
+                  请求头 {{ index + 1 }}
+                  <n-tooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <n-icon :component="HelpCircleOutline" class="help-icon" />
+                    </template>
+                    配置HTTP请求头的名称、值和操作类型。移除操作会删除指定的请求头
+                  </n-tooltip>
+                </div>
+              </template>
+              <div class="header-rule-content">
+                <div class="header-name">
+                  <n-input
+                    v-model:value="headerRule.key"
+                    placeholder="Header名称"
+                    :status="
+                      !validateHeaderKeyUniqueness(formData.header_rules, index, headerRule.key)
+                        ? 'error'
+                        : undefined
+                    "
+                  />
+                  <div
+                    v-if="
+                      !validateHeaderKeyUniqueness(formData.header_rules, index, headerRule.key)
+                    "
+                    class="error-message"
+                  >
+                    Header名称重复
+                  </div>
+                </div>
+                <div class="header-value" v-if="headerRule.action === 'set'">
+                  <n-input
+                    v-model:value="headerRule.value"
+                    placeholder="支持变量，例如：${CLIENT_IP}"
+                  />
+                </div>
+                <div class="header-value removed-placeholder" v-else>
+                  <span class="removed-text">将从请求中移除</span>
+                </div>
+                <div class="header-action">
+                  <n-tooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <n-switch
+                        v-model:value="headerRule.action"
+                        :checked-value="'remove'"
+                        :unchecked-value="'set'"
+                        size="small"
+                      />
+                    </template>
+                    开启移除开关将删除此请求头，关闭则添加或覆盖此请求头
+                  </n-tooltip>
+                </div>
+                <div class="header-actions">
+                  <n-button
+                    @click="removeHeaderRule(index)"
+                    type="error"
+                    quaternary
+                    circle
+                    size="small"
+                  >
+                    <template #icon>
+                      <n-icon :component="Remove" />
+                    </template>
+                  </n-button>
+                </div>
+              </div>
+            </n-form-item>
+          </div>
+
+          <div style="margin-top: 12px; padding-left: 120px">
+            <n-button @click="addHeaderRule" dashed style="width: 100%">
+              <template #icon>
+                <n-icon :component="Add" />
+              </template>
+              添加请求头
+            </n-button>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <n-form-item path="param_overrides">
+            <template #label>
+              <div class="form-label-with-tooltip">
+                参数覆盖
                 <n-tooltip trigger="hover" placement="top">
                   <template #trigger>
                     <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
                   </template>
-                  针对此分组的专用配置参数，如超时时间、重试次数等。这些配置会覆盖全局默认设置
+                  使用JSON格式定义要覆盖的API请求参数。例如： {&quot;temperature&quot;:
+                  0.7}。这些参数会在发送请求时合并到原始参数中
                 </n-tooltip>
-              </h5>
-
-              <div class="config-items">
-                <n-form-item
-                  v-for="(configItem, index) in formData.configItems"
-                  :key="index"
-                  class="config-item-row"
-                  :label="`配置 ${index + 1}`"
-                  :path="`configItems[${index}].key`"
-                  :rule="{
-                    required: true,
-                    message: '',
-                    trigger: ['blur', 'change'],
-                  }"
-                >
-                  <template #label>
-                    <div class="form-label-with-tooltip">
-                      配置 {{ index + 1 }}
-                      <n-tooltip trigger="hover" placement="top">
-                        <template #trigger>
-                          <n-icon :component="HelpCircleOutline" class="help-icon" />
-                        </template>
-                        选择要配置的参数类型，然后设置对应的数值。不同参数有不同的作用和取值范围
-                      </n-tooltip>
-                    </div>
-                  </template>
-                  <div class="config-item-content">
-                    <div class="config-select">
-                      <n-select
-                        v-model:value="configItem.key"
-                        :options="
-                          configOptions
-                            .filter(opt => opt.key !== 'blacklist_threshold')
-                            .map(opt => ({
-                              label: opt.name,
-                              value: opt.key,
-                              disabled:
-                                formData.configItems
-                                  .map((item: ConfigItem) => item.key)
-                                  ?.includes(opt.key) && opt.key !== configItem.key,
-                            }))
-                        "
-                        placeholder="请选择配置参数"
-                        @update:value="value => handleConfigKeyChange(index, value)"
-                        clearable
-                      />
-                    </div>
-                    <div class="config-value">
-                      <n-tooltip trigger="hover" placement="top">
-                        <template #trigger>
-                          <n-input-number
-                            v-if="typeof configItem.value === 'number'"
-                            v-model:value="configItem.value"
-                            placeholder="参数值"
-                            :precision="0"
-                            style="width: 100%"
-                          />
-                          <n-switch
-                            v-else-if="typeof configItem.value === 'boolean'"
-                            v-model:value="configItem.value"
-                            size="small"
-                          />
-                          <n-input v-else v-model:value="configItem.value" placeholder="参数值" />
-                        </template>
-                        {{ getConfigOption(configItem.key)?.description || "设置此配置项的值" }}
-                      </n-tooltip>
-                    </div>
-                    <div class="config-actions">
-                      <n-button
-                        @click="removeConfigItem(index)"
-                        type="error"
-                        quaternary
-                        circle
-                        size="small"
-                      >
-                        <template #icon>
-                          <n-icon :component="Remove" />
-                        </template>
-                      </n-button>
-                    </div>
-                  </div>
-                </n-form-item>
               </div>
-
-              <div style="margin-top: 12px; padding-left: 120px">
-                <n-button
-                  @click="addConfigItem"
-                  dashed
-                  style="width: 100%"
-                  :disabled="formData.configItems.length >= configOptions.length - 1"
-                >
-                  <template #icon>
-                    <n-icon :component="Add" />
-                  </template>
-                  添加配置参数
-                </n-button>
-              </div>
-            </div>
-
-            <div class="config-section">
-              <h5 class="config-title-with-tooltip">
-                自定义请求头
-                <n-tooltip trigger="hover" placement="top">
-                  <template #trigger>
-                    <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
-                  </template>
-                  <div>
-                    在代理请求转发至上游服务前，对 HTTP 请求头进行添加、覆盖或移除操作。
-                    <br />
-                    支持动态变量：
-                    <br />
-                    • ${CLIENT_IP} - 客户端IP地址
-                    <br />
-                    • ${GROUP_NAME} - 分组名称
-                    <br />
-                    • ${API_KEY} - 当前轮询的API密钥
-                    <br />
-                    • ${TIMESTAMP_MS} - 毫秒时间戳
-                    <br />
-                    • ${TIMESTAMP_S} - 秒时间戳
-                  </div>
-                </n-tooltip>
-              </h5>
-
-              <div class="header-rules-items">
-                <n-form-item
-                  v-for="(headerRule, index) in formData.header_rules"
-                  :key="index"
-                  class="header-rule-row"
-                  :label="`请求头 ${index + 1}`"
-                >
-                  <template #label>
-                    <div class="form-label-with-tooltip">
-                      请求头 {{ index + 1 }}
-                      <n-tooltip trigger="hover" placement="top">
-                        <template #trigger>
-                          <n-icon :component="HelpCircleOutline" class="help-icon" />
-                        </template>
-                        配置HTTP请求头的名称、值和操作类型。移除操作会删除指定的请求头
-                      </n-tooltip>
-                    </div>
-                  </template>
-                  <div class="header-rule-content">
-                    <div class="header-name">
-                      <n-input
-                        v-model:value="headerRule.key"
-                        placeholder="Header名称"
-                        :status="
-                          !validateHeaderKeyUniqueness(formData.header_rules, index, headerRule.key)
-                            ? 'error'
-                            : undefined
-                        "
-                      />
-                      <div
-                        v-if="
-                          !validateHeaderKeyUniqueness(formData.header_rules, index, headerRule.key)
-                        "
-                        class="error-message"
-                      >
-                        Header名称重复
-                      </div>
-                    </div>
-                    <div class="header-value" v-if="headerRule.action === 'set'">
-                      <n-input
-                        v-model:value="headerRule.value"
-                        placeholder="支持变量，例如：${CLIENT_IP}"
-                      />
-                    </div>
-                    <div class="header-value removed-placeholder" v-else>
-                      <span class="removed-text">将从请求中移除</span>
-                    </div>
-                    <div class="header-action">
-                      <n-tooltip trigger="hover" placement="top">
-                        <template #trigger>
-                          <n-switch
-                            v-model:value="headerRule.action"
-                            :checked-value="'remove'"
-                            :unchecked-value="'set'"
-                            size="small"
-                          />
-                        </template>
-                        开启移除开关将删除此请求头，关闭则添加或覆盖此请求头
-                      </n-tooltip>
-                    </div>
-                    <div class="header-actions">
-                      <n-button
-                        @click="removeHeaderRule(index)"
-                        type="error"
-                        quaternary
-                        circle
-                        size="small"
-                      >
-                        <template #icon>
-                          <n-icon :component="Remove" />
-                        </template>
-                      </n-button>
-                    </div>
-                  </div>
-                </n-form-item>
-              </div>
-
-              <div style="margin-top: 12px; padding-left: 120px">
-                <n-button @click="addHeaderRule" dashed style="width: 100%">
-                  <template #icon>
-                    <n-icon :component="Add" />
-                  </template>
-                  添加请求头
-                </n-button>
-              </div>
-            </div>
-
-            <div class="config-section">
-              <n-form-item path="param_overrides">
-                <template #label>
-                  <div class="form-label-with-tooltip">
-                    参数覆盖
-                    <n-tooltip trigger="hover" placement="top">
-                      <template #trigger>
-                        <n-icon :component="HelpCircleOutline" class="help-icon config-help" />
-                      </template>
-                      使用JSON格式定义要覆盖的API请求参数。例如： {&quot;temperature&quot;:
-                      0.7}。这些参数会在发送请求时合并到原始参数中
-                    </n-tooltip>
-                  </div>
-                </template>
-                <n-input
-                  v-model:value="formData.param_overrides"
-                  type="textarea"
-                  placeholder='{"temperature": 0.7}'
-                  :rows="4"
-                />
-              </n-form-item>
-            </div>
-          </n-collapse-item>
-        </n-collapse>
+            </template>
+            <n-input
+              v-model:value="formData.param_overrides"
+              type="textarea"
+              placeholder='{"temperature": 0.7}'
+              :rows="4"
+            />
+          </n-form-item>
+        </div>
       </div>
     </n-form>
 
-    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb">
+    <div
+      style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb"
+      v-if="props.section === 'all'"
+    >
       <n-button type="primary" @click="handleSubmit" :loading="loading" size="large">
         保存设置
       </n-button>

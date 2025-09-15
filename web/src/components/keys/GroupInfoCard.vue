@@ -26,7 +26,7 @@ import {
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import GroupCopyModal from "./GroupCopyModal.vue";
-import GroupSettingsTabs from "./GroupSettingsTabs.vue";
+import GroupSettingsForm from "./GroupSettingsForm.vue";
 
 interface Props {
   group: Group | null;
@@ -58,6 +58,15 @@ const configOptions = ref<GroupConfigOption[]>([]);
 const showProxyKeys = ref(false);
 const descriptionInput = ref<HTMLInputElement | null>(null);
 const activeTab = ref("description");
+const editModeFormRefs = ref<{
+  basic: any;
+  upstream: any;
+  advanced: any;
+}>({
+  basic: null,
+  upstream: null,
+  advanced: null,
+});
 
 // 渠道切换相关状态
 const channelSwitchLoading = ref(false);
@@ -69,6 +78,11 @@ const channelTypeCycle = ["openai", "anthropic", "gemini"] as const;
 const isEditingDescription = ref(false);
 const editingDescription = ref("");
 const descriptionLoading = ref(false);
+
+// 详细信息页面编辑模式状态
+const isEditMode = ref(false);
+const editModeLoading = ref(false);
+const detailsActiveTab = ref("basic"); // 详细信息主tabs的当前标签
 
 const proxyKeysDisplay = computed(() => {
   if (!props.group?.proxy_keys) {
@@ -270,20 +284,12 @@ function getConfigDescription(key: string): string {
 }
 
 function handleEdit() {
-  activeTab.value = "settings";
+  activeTab.value = "details";
+  isEditMode.value = true;
 }
 
 function handleCopy() {
   showCopyModal.value = true;
-}
-
-// 处理设置表单的更新
-function handleGroupUpdatedFromSettings(newGroup: Group) {
-  if (newGroup) {
-    emit("updated", newGroup);
-    // 重新加载当前分组的统计数据
-    loadStats();
-  }
 }
 
 function handleGroupCopied(newGroup: Group) {
@@ -449,6 +455,9 @@ function resetPage() {
   // 重置内联编辑状态
   isEditingDescription.value = false;
   editingDescription.value = "";
+  // 重置详细信息编辑模式
+  isEditMode.value = false;
+  detailsActiveTab.value = "basic";
   // 重置标签页到描述卡片
   activeTab.value = "description";
 }
@@ -467,6 +476,54 @@ async function copyDescription() {
     window.$message.error("复制失败", {
       duration: 3000,
     });
+  }
+}
+
+// 进入编辑模式
+function enterEditMode() {
+  isEditMode.value = true;
+}
+
+// 退出编辑模式
+function exitEditMode() {
+  isEditMode.value = false;
+}
+
+// 切换编辑模式
+function toggleEditMode() {
+  if (isEditMode.value) {
+    exitEditMode();
+  } else {
+    enterEditMode();
+  }
+}
+
+// 处理编辑模式下的设置更新
+function handleEditModeGroupUpdated(newGroup: Group) {
+  if (newGroup) {
+    emit("updated", newGroup);
+    // 重新加载当前分组的统计数据
+    loadStats();
+    // 退出编辑模式
+    exitEditMode();
+  }
+}
+
+// 编辑模式提交函数
+async function handleEditModeSubmit() {
+  const currentFormRef =
+    editModeFormRefs.value[detailsActiveTab.value as keyof typeof editModeFormRefs.value];
+  if (!currentFormRef) {
+    message.error("表单组件未加载");
+    return;
+  }
+
+  try {
+    editModeLoading.value = true;
+    // 调用当前标签页对应的表单的提交方法
+    await currentFormRef.handleSubmit();
+  } finally {
+    editModeLoading.value = false;
   }
 }
 </script>
@@ -743,160 +800,250 @@ async function copyDescription() {
           <!-- 详细信息标签页 (索引 1) -->
           <n-tab-pane name="details" tab="详细信息">
             <div class="details-content">
-              <div class="detail-section">
-                <h4 class="section-title">基础信息</h4>
-                <n-form label-placement="left" label-width="85px" label-align="right">
-                  <n-grid cols="1 m:2">
-                    <n-grid-item>
-                      <n-form-item label="分组名称：">
-                        {{ group?.name }}
-                      </n-form-item>
-                    </n-grid-item>
-                    <n-grid-item>
-                      <n-form-item label="显示名称：">
-                        {{ group?.display_name }}
-                      </n-form-item>
-                    </n-grid-item>
-                    <n-grid-item>
-                      <n-form-item label="渠道类型：">
-                        {{ group?.channel_type }}
-                      </n-form-item>
-                    </n-grid-item>
-                    <n-grid-item>
-                      <n-form-item label="排序：">
-                        {{ group?.sort }}
-                      </n-form-item>
-                    </n-grid-item>
-                    <n-grid-item>
-                      <n-form-item label="测试模型：">
-                        {{ group?.test_model }}
-                      </n-form-item>
-                    </n-grid-item>
-                    <n-grid-item v-if="group?.channel_type !== 'gemini'">
-                      <n-form-item label="测试路径：">
-                        {{ group?.validation_endpoint }}
-                      </n-form-item>
-                    </n-grid-item>
-                    <n-grid-item :span="2">
-                      <n-form-item label="代理密钥：">
-                        <div class="proxy-keys-content">
-                          <span class="key-text">{{ proxyKeysDisplay }}</span>
-                          <n-button-group size="small" class="key-actions" v-if="group?.proxy_keys">
-                            <n-tooltip trigger="hover">
-                              <template #trigger>
-                                <n-button quaternary circle @click="showProxyKeys = !showProxyKeys">
-                                  <template #icon>
-                                    <n-icon
-                                      :component="showProxyKeys ? EyeOffOutline : EyeOutline"
-                                    />
-                                  </template>
-                                </n-button>
-                              </template>
-                              {{ showProxyKeys ? "隐藏密钥" : "显示密钥" }}
-                            </n-tooltip>
-                            <n-tooltip trigger="hover">
-                              <template #trigger>
-                                <n-button quaternary circle @click="copyProxyKeys">
-                                  <template #icon>
-                                    <n-icon :component="CopyOutline" />
-                                  </template>
-                                </n-button>
-                              </template>
-                              复制密钥
-                            </n-tooltip>
-                          </n-button-group>
-                        </div>
-                      </n-form-item>
-                    </n-grid-item>
-                  </n-grid>
-                </n-form>
-              </div>
-
-              <div class="detail-section">
-                <h4 class="section-title">上游地址</h4>
-                <n-form label-placement="left" label-width="100px">
-                  <n-form-item
-                    v-for="(upstream, index) in group?.upstreams ?? []"
-                    :key="index"
-                    class="upstream-item"
-                    :label="`上游 ${index + 1}:`"
+              <div class="details-layout">
+                <!-- 左侧按钮区域 -->
+                <div class="buttons-area">
+                  <!-- 模式切换按钮 -->
+                  <n-button
+                    type="primary"
+                    @click="toggleEditMode"
+                    size="small"
+                    class="mode-toggle-btn"
                   >
-                    <span class="upstream-weight">
-                      <n-tag size="small" type="info">权重: {{ upstream.weight }}</n-tag>
-                    </span>
-                    <n-input class="upstream-url" :value="upstream.url" readonly size="small" />
-                  </n-form-item>
-                </n-form>
-              </div>
+                    {{ isEditMode ? "查看模式" : "编辑模式" }}
+                  </n-button>
 
-              <div class="detail-section" v-if="hasAdvancedConfig">
-                <h4 class="section-title">高级配置</h4>
-                <n-form label-placement="left">
-                  <n-form-item v-for="(value, key) in group?.config || {}" :key="key">
-                    <template #label>
-                      <n-tooltip trigger="hover" :delay="300" placement="top">
-                        <template #trigger>
-                          <span class="config-label">
-                            {{ getConfigDisplayName(key) }}:
-                            <n-icon size="14" class="config-help-icon">
-                              <svg viewBox="0 0 24 24">
-                                <path
-                                  fill="currentColor"
-                                  d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,17A1.5,1.5 0 0,1 10.5,15.5A1.5,1.5 0 0,1 12,14A1.5,1.5 0 0,1 13.5,15.5A1.5,1.5 0 0,1 12,17M12,10.5C10.07,10.5 8.5,8.93 8.5,7A3.5,3.5 0 0,1 12,3.5A3.5,3.5 0 0,1 15.5,7C15.5,8.93 13.93,10.5 12,10.5Z"
-                                />
-                              </svg>
-                            </n-icon>
-                          </span>
-                        </template>
-                        <div class="config-tooltip">
-                          <div class="tooltip-title">{{ getConfigDisplayName(key) }}</div>
-                          <div class="tooltip-description">{{ getConfigDescription(key) }}</div>
-                          <div class="tooltip-key">配置键: {{ key }}</div>
-                        </div>
-                      </n-tooltip>
-                    </template>
-                    {{ value || "-" }}
-                  </n-form-item>
-                  <n-form-item
-                    v-if="group?.header_rules && group.header_rules.length > 0"
-                    label="自定义请求头:"
-                    :span="2"
-                  >
-                    <div class="header-rules-display">
-                      <div
-                        v-for="(rule, index) in group.header_rules"
-                        :key="index"
-                        class="header-rule-item"
-                      >
-                        <n-tag :type="rule.action === 'remove' ? 'error' : 'default'" size="small">
-                          {{ rule.key }}
-                        </n-tag>
-                        <span class="header-separator">:</span>
-                        <span class="header-value" v-if="rule.action === 'set'">
-                          {{ rule.value || "(空值)" }}
-                        </span>
-                        <span class="header-removed" v-else>删除</span>
+                  <!-- 保存取消按钮组 -->
+                  <n-button-group class="action-buttons">
+                    <n-button
+                      type="primary"
+                      @click="handleEditModeSubmit"
+                      :loading="editModeLoading"
+                      :disabled="!isEditMode"
+                      size="small"
+                    >
+                      保存
+                    </n-button>
+                    <n-button @click="exitEditMode" :disabled="!isEditMode" size="small">
+                      取消
+                    </n-button>
+                  </n-button-group>
+                </div>
+
+                <!-- 右侧内容区域 -->
+                <div class="content-area">
+                  <n-tabs v-model:value="detailsActiveTab" type="line" animated>
+                    <!-- 基础信息 Tab -->
+                    <n-tab-pane name="basic" tab="基础信息">
+                      <!-- 查看模式 -->
+                      <div v-if="!isEditMode" class="tab-content">
+                        <n-form label-placement="left" label-width="85px" label-align="right">
+                          <n-grid cols="1 m:2">
+                            <n-grid-item>
+                              <n-form-item label="分组名称：">
+                                {{ group?.name }}
+                              </n-form-item>
+                            </n-grid-item>
+                            <n-grid-item>
+                              <n-form-item label="显示名称：">
+                                {{ group?.display_name }}
+                              </n-form-item>
+                            </n-grid-item>
+                            <n-grid-item>
+                              <n-form-item label="渠道类型：">
+                                {{ group?.channel_type }}
+                              </n-form-item>
+                            </n-grid-item>
+                            <n-grid-item>
+                              <n-form-item label="排序：">
+                                {{ group?.sort }}
+                              </n-form-item>
+                            </n-grid-item>
+                            <n-grid-item>
+                              <n-form-item label="测试模型：">
+                                {{ group?.test_model }}
+                              </n-form-item>
+                            </n-grid-item>
+                            <n-grid-item v-if="group?.channel_type !== 'gemini'">
+                              <n-form-item label="测试路径：">
+                                {{ group?.validation_endpoint }}
+                              </n-form-item>
+                            </n-grid-item>
+                            <n-grid-item :span="2">
+                              <n-form-item label="代理密钥：">
+                                <div class="proxy-keys-content">
+                                  <span class="key-text">{{ proxyKeysDisplay }}</span>
+                                  <n-button-group
+                                    size="small"
+                                    class="key-actions"
+                                    v-if="group?.proxy_keys"
+                                  >
+                                    <n-tooltip trigger="hover">
+                                      <template #trigger>
+                                        <n-button
+                                          quaternary
+                                          circle
+                                          @click="showProxyKeys = !showProxyKeys"
+                                        >
+                                          <template #icon>
+                                            <n-icon
+                                              :component="
+                                                showProxyKeys ? EyeOffOutline : EyeOutline
+                                              "
+                                            />
+                                          </template>
+                                        </n-button>
+                                      </template>
+                                      {{ showProxyKeys ? "隐藏密钥" : "显示密钥" }}
+                                    </n-tooltip>
+                                    <n-tooltip trigger="hover">
+                                      <template #trigger>
+                                        <n-button quaternary circle @click="copyProxyKeys">
+                                          <template #icon>
+                                            <n-icon :component="CopyOutline" />
+                                          </template>
+                                        </n-button>
+                                      </template>
+                                      复制密钥
+                                    </n-tooltip>
+                                  </n-button-group>
+                                </div>
+                              </n-form-item>
+                            </n-grid-item>
+                          </n-grid>
+                        </n-form>
                       </div>
-                    </div>
-                  </n-form-item>
-                  <n-form-item v-if="group?.param_overrides" label="参数覆盖:" :span="2">
-                    <pre class="config-json">{{
-                      JSON.stringify(group?.param_overrides || "", null, 2)
-                    }}</pre>
-                  </n-form-item>
-                </n-form>
-              </div>
-            </div>
-          </n-tab-pane>
 
-          <!-- 设置标签页 (索引 2) -->
-          <n-tab-pane name="settings" tab="设置">
-            <div class="settings-content">
-              <div v-if="!group" class="no-group-message">
-                <p>请先选择一个分组</p>
-              </div>
-              <div v-else class="settings-form-container">
-                <group-settings-tabs :group="group" @updated="handleGroupUpdatedFromSettings" />
+                      <!-- 编辑模式 -->
+                      <div v-else class="tab-content">
+                        <group-settings-form
+                          :group="group"
+                          section="basic"
+                          @updated="handleEditModeGroupUpdated"
+                          :ref="el => (editModeFormRefs.basic = el)"
+                        />
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- 上游地址 Tab -->
+                    <n-tab-pane name="upstream" tab="上游地址">
+                      <!-- 查看模式 -->
+                      <div v-if="!isEditMode" class="tab-content">
+                        <n-form label-placement="left" label-width="100px">
+                          <n-form-item
+                            v-for="(upstream, index) in group?.upstreams ?? []"
+                            :key="index"
+                            class="upstream-item"
+                            :label="`上游 ${index + 1}:`"
+                          >
+                            <span class="upstream-weight">
+                              <n-tag size="small" type="info">权重: {{ upstream.weight }}</n-tag>
+                            </span>
+                            <n-input
+                              class="upstream-url"
+                              :value="upstream.url"
+                              readonly
+                              size="small"
+                            />
+                          </n-form-item>
+                        </n-form>
+                      </div>
+
+                      <!-- 编辑模式 -->
+                      <div v-else class="tab-content">
+                        <group-settings-form
+                          :group="group"
+                          section="upstream"
+                          @updated="handleEditModeGroupUpdated"
+                          :ref="el => (editModeFormRefs.upstream = el)"
+                        />
+                      </div>
+                    </n-tab-pane>
+
+                    <!-- 高级配置 Tab -->
+                    <n-tab-pane name="advanced" tab="高级配置">
+                      <!-- 查看模式 -->
+                      <div v-if="!isEditMode" class="tab-content">
+                        <div v-if="hasAdvancedConfig">
+                          <n-form label-placement="left">
+                            <n-form-item v-for="(value, key) in group?.config || {}" :key="key">
+                              <template #label>
+                                <n-tooltip trigger="hover" :delay="300" placement="top">
+                                  <template #trigger>
+                                    <span class="config-label">
+                                      {{ getConfigDisplayName(key) }}:
+                                      <n-icon size="14" class="config-help-icon">
+                                        <svg viewBox="0 0 24 24">
+                                          <path
+                                            fill="currentColor"
+                                            d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,17A1.5,1.5 0 0,1 10.5,15.5A1.5,1.5 0 0,1 12,14A1.5,1.5 0 0,1 13.5,15.5A1.5,1.5 0 0,1 12,17M12,10.5C10.07,10.5 8.5,8.93 8.5,7A3.5,3.5 0 0,1 12,3.5A3.5,3.5 0 0,1 15.5,7C15.5,8.93 13.93,10.5 12,10.5Z"
+                                          />
+                                        </svg>
+                                      </n-icon>
+                                    </span>
+                                  </template>
+                                  <div class="config-tooltip">
+                                    <div class="tooltip-title">
+                                      {{ getConfigDisplayName(key) }}
+                                    </div>
+                                    <div class="tooltip-description">
+                                      {{ getConfigDescription(key) }}
+                                    </div>
+                                    <div class="tooltip-key">配置键: {{ key }}</div>
+                                  </div>
+                                </n-tooltip>
+                              </template>
+                              {{ value || "-" }}
+                            </n-form-item>
+                            <n-form-item
+                              v-if="group?.header_rules && group.header_rules.length > 0"
+                              label="自定义请求头:"
+                              :span="2"
+                            >
+                              <div class="header-rules-display">
+                                <div
+                                  v-for="(rule, index) in group.header_rules"
+                                  :key="index"
+                                  class="header-rule-item"
+                                >
+                                  <n-tag
+                                    :type="rule.action === 'remove' ? 'error' : 'default'"
+                                    size="small"
+                                  >
+                                    {{ rule.key }}
+                                  </n-tag>
+                                  <span class="header-separator">:</span>
+                                  <span class="header-value" v-if="rule.action === 'set'">
+                                    {{ rule.value || "(空值)" }}
+                                  </span>
+                                  <span class="header-removed" v-else>删除</span>
+                                </div>
+                              </div>
+                            </n-form-item>
+                            <n-form-item v-if="group?.param_overrides" label="参数覆盖:" :span="2">
+                              <pre class="config-json">{{
+                                JSON.stringify(group?.param_overrides || "", null, 2)
+                              }}</pre>
+                            </n-form-item>
+                          </n-form>
+                        </div>
+                        <div v-else class="no-advanced-config">
+                          <p>暂无高级配置</p>
+                        </div>
+                      </div>
+
+                      <!-- 编辑模式 -->
+                      <div v-else class="tab-content">
+                        <group-settings-form
+                          :group="group"
+                          section="advanced"
+                          @updated="handleEditModeGroupUpdated"
+                          :ref="el => (editModeFormRefs.advanced = el)"
+                        />
+                      </div>
+                    </n-tab-pane>
+                  </n-tabs>
+                </div>
               </div>
             </div>
           </n-tab-pane>
@@ -1433,5 +1580,103 @@ async function copyDescription() {
   padding: 0;
   max-height: 70vh;
   overflow-y: auto;
+}
+
+/* 查看/编辑模式切换相关样式 */
+.mode-switch-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.view-mode .detail-section:first-child {
+  margin-top: 0;
+}
+
+.edit-mode .edit-content {
+  margin-top: 0;
+}
+
+/* 编辑模式下的内容样式 */
+.edit-content {
+  width: 100%;
+}
+
+/* 编辑模式下隐藏 GroupSettingsTabs 原本的保存按钮 */
+.edit-content :deep(.top-right-save-button) {
+  display: none !important;
+}
+
+/* 新的详细信息布局样式 */
+.details-layout {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+}
+
+.buttons-area {
+  flex: 0 0 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 20px;
+  border-right: 1px solid #e5e7eb;
+}
+
+.mode-toggle-btn {
+  width: 100%;
+}
+
+.action-buttons {
+  width: 100%;
+}
+
+.action-buttons .n-button {
+  flex: 1;
+}
+
+.content-area {
+  flex: 1;
+  min-width: 0;
+}
+
+.tab-content {
+  padding: 16px 0;
+}
+
+.no-advanced-config {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px 20px;
+  font-size: 0.9rem;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .details-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .buttons-area {
+    flex: none;
+    flex-direction: row;
+    padding-right: 0;
+    padding-bottom: 16px;
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .mode-toggle-btn {
+    width: auto;
+    flex: 1;
+  }
+
+  .action-buttons {
+    width: auto;
+    flex: 1;
+  }
 }
 </style>
