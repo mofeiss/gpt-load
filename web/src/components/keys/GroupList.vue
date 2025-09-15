@@ -271,6 +271,7 @@ function handleGroupClick(group: Group) {
 // 右键菜单处理
 function handleContextMenu(event: MouseEvent, group: Group) {
   event.preventDefault();
+  event.stopPropagation(); // 阻止事件冒泡到容器的空白区域菜单
   contextMenuData.value = {
     show: true,
     x: event.clientX,
@@ -282,6 +283,7 @@ function handleContextMenu(event: MouseEvent, group: Group) {
 // 分类右键菜单处理
 function handleCategoryContextMenu(event: MouseEvent, category: Category) {
   event.preventDefault();
+  event.stopPropagation(); // 阻止事件冒泡到容器的空白区域菜单
   categoryContextMenuData.value = {
     show: true,
     x: event.clientX,
@@ -760,7 +762,7 @@ function handleCategoryCreatedOrUpdated() {
 .category-title {
   font-size: 12px;
   font-weight: 600;
-  color: #4f46e5;
+  color: #64748b;
 }
 
 .categorized-item {
@@ -772,7 +774,7 @@ function handleCategoryCreatedOrUpdated() {
   width: 20px;
   height: 20px;
   font-size: 12px;
-  background: rgba(79, 70, 229, 0.1);
+  background: rgba(148, 163, 184, 0.1);
 }
 
 .categorized-content {
@@ -789,14 +791,14 @@ function handleCategoryCreatedOrUpdated() {
 }
 
 .categorized-item:hover {
-  background: rgba(79, 70, 229, 0.1);
-  border-color: rgba(79, 70, 229, 0.2);
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.2);
 }
 
 .categorized-item.active {
-  background: rgba(79, 70, 229, 0.2);
-  color: #4338ca;
-  border-color: rgba(79, 70, 229, 0.3);
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+  border-color: rgba(148, 163, 184, 0.3);
 }
 
 .categorized-item.active .categorized-icon {
