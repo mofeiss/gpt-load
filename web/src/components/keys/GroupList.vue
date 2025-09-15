@@ -3,7 +3,7 @@ import type { Group, Category } from "@/types/models";
 import { getGroupDisplayName } from "@/utils/display";
 import { Add, Search } from "@vicons/ionicons5";
 import { NButton, NCard, NEmpty, NInput, NSpin, NTag, NCollapse, NCollapseItem } from "naive-ui";
-import { ref, watch, onMounted, computed, nextTick } from "vue";
+import { ref, watch, onMounted, onUnmounted, computed, nextTick } from "vue";
 import { categoriesApi } from "@/api/categories";
 import GroupFormModal from "./GroupFormModal.vue";
 import GroupContextMenu from "./GroupContextMenu.vue";
@@ -125,6 +125,9 @@ watch(searchText, () => {
 function handleDragEnd() {
   log("handleDragEnd triggered. Processing final state.");
 
+  // 清理拖拽自动展开状态
+  handleGlobalDragEnd();
+
   const uncategorized = localUncategorizedGroups.value;
   const allCategoryGroups = Object.values(localCategoryGroups.value).flat();
 
@@ -223,6 +226,10 @@ const blankContextMenuData = ref<{
 // 展开状态管理 - 只保留分类展开状态
 const categoryExpandedArray = ref<string[]>([]);
 
+// 拖拽自动展开分类相关状态
+const dragExpandTimer = ref<number | null>(null);
+const currentDragOverCategory = ref<number | null>(null);
+
 // 初始化
 onMounted(async () => {
   setupGlobalLogExporter();
@@ -239,6 +246,11 @@ onMounted(async () => {
     categoryExpandedArray.value = expandedIds.map(id => `category-${id}`);
   }
   // --- END: Persistence Logic ---
+});
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  handleGlobalDragEnd();
 });
 
 // 加载分类数据
@@ -263,6 +275,141 @@ watch(categoryExpandedArray, newValue => {
   });
   localStorage.setItem(CATEGORIES_EXPANDED_STORAGE_KEY, JSON.stringify(mapForStorage));
 });
+
+// 拖拽自动展开分类处理函数
+function handleCategoryDragEnter(categoryId: number) {
+  console.log('Drag enter category:', categoryId);
+
+  // 如果已经是当前悬停的分类，不重复处理
+  if (currentDragOverCategory.value === categoryId) {
+    return;
+  }
+
+  // 更新当前悬停的分类
+  currentDragOverCategory.value = categoryId;
+
+  // 如果分类已经展开，不需要处理
+  const categoryKey = `category-${categoryId}`;
+  if (categoryExpandedArray.value.includes(categoryKey)) {
+    console.log('Category already expanded:', categoryKey);
+    return;
+  }
+
+  // 清除之前的定时器
+  if (dragExpandTimer.value) {
+    clearTimeout(dragExpandTimer.value);
+  }
+
+  console.log('Setting expand timer for category:', categoryId);
+
+  // 设置200ms延迟自动展开
+  dragExpandTimer.value = setTimeout(() => {
+    console.log('Timer triggered for category:', categoryId, 'Current hover:', currentDragOverCategory.value);
+    // 检查是否还在同一个分类上
+    if (currentDragOverCategory.value === categoryId) {
+      // 自动展开分类
+      if (!categoryExpandedArray.value.includes(categoryKey)) {
+        console.log('Auto expanding category:', categoryKey);
+        categoryExpandedArray.value.push(categoryKey);
+
+        // 展开后，等待一小段时间让DOM更新，然后触发拖拽区域的dragover效果
+        setTimeout(() => {
+          triggerDragOverInCategory(categoryId);
+        }, 50);
+      }
+    }
+  }, 200);
+}
+
+function handleCategoryDragLeave(categoryId: number) {
+  console.log('Drag leave category:', categoryId);
+  // dragleave 事件不可靠，这里只做记录，不清除定时器
+}
+
+function handleCategoryDragOver(event: DragEvent, categoryId: number) {
+  // 阻止默认行为以允许drop
+  event.preventDefault();
+  // console.log('Drag over category:', categoryId); // 太频繁了，注释掉
+
+  // 确保当前悬停的分类是正确的
+  if (currentDragOverCategory.value !== categoryId) {
+    handleCategoryDragEnter(categoryId);
+  }
+}
+
+// 添加全局拖拽结束事件监听，用于清理状态
+function handleGlobalDragEnd() {
+  console.log('Global drag end - cleaning up');
+  currentDragOverCategory.value = null;
+  if (dragExpandTimer.value) {
+    clearTimeout(dragExpandTimer.value);
+    dragExpandTimer.value = null;
+  }
+
+  // 清理所有自动展开占位符
+  const placeholders = document.querySelectorAll('.auto-expand-placeholder');
+  placeholders.forEach(placeholder => {
+    if (placeholder.parentNode) {
+      placeholder.parentNode.removeChild(placeholder);
+      console.log('Removed auto-expand placeholder');
+    }
+  });
+}
+
+// 在分类展开后触发拖拽区域的dragover效果
+function triggerDragOverInCategory(categoryId: number) {
+  console.log('Triggering drag over in expanded category:', categoryId);
+
+  // 查找对应分类的拖拽容器DOM元素
+  const categoryKey = `category-${categoryId}`;
+  const collapseItem = document.querySelector(`[name="${categoryKey}"]`);
+
+  if (collapseItem) {
+    // 查找分类内容区域的拖拽容器
+    const dragContainer = collapseItem.querySelector('.category-list, .archived-list');
+
+    if (dragContainer) {
+      console.log('Found drag container, creating placeholder');
+
+      // 检查是否已经有占位符
+      const existingPlaceholder = dragContainer.querySelector('.auto-expand-placeholder');
+      if (existingPlaceholder) {
+        return;
+      }
+
+      // 手动创建一个占位符元素
+      const placeholder = document.createElement('div');
+      placeholder.className = 'sortable-ghost auto-expand-placeholder';
+      placeholder.style.cssText = `
+        opacity: 1;
+        background: transparent;
+        border: 2px dashed #667eea;
+        border-radius: 6px;
+        height: 40px;
+        margin: 4px 0;
+        pointer-events: none;
+      `;
+
+      // 插入占位符到容器的开头
+      dragContainer.insertBefore(placeholder, dragContainer.firstChild);
+
+      console.log('Placeholder created in drag container');
+
+      // 5秒后移除占位符（防止永久存在）
+      setTimeout(() => {
+        if (placeholder.parentNode) {
+          placeholder.parentNode.removeChild(placeholder);
+          console.log('Auto-expand placeholder removed');
+        }
+      }, 5000);
+
+    } else {
+      console.log('Drag container not found in category');
+    }
+  } else {
+    console.log('Category collapse item not found');
+  }
+}
 
 function handleGroupClick(group: Group) {
   emit("group-select", group);
@@ -472,6 +619,9 @@ function handleCategoryCreatedOrUpdated() {
                 :key="category.id"
                 :name="`category-${category.id}`"
                 :class="category.name === 'archived' ? 'archived-collapse' : 'category-collapse'"
+                @dragenter.prevent="handleCategoryDragEnter(category.id)"
+                @dragleave.prevent="handleCategoryDragLeave(category.id)"
+                @dragover.prevent="handleCategoryDragOver($event, category.id)"
               >
                 <template #header>
                   <div
@@ -864,6 +1014,19 @@ function handleCategoryCreatedOrUpdated() {
 
 :deep(.category-collapse .n-collapse-item__header) {
   padding: 8px 0;
+}
+
+/* 确保整个标题行都能响应拖拽事件 */
+:deep(.n-collapse-item__header) {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+:deep(.n-collapse-item__header-main) {
+  flex: 1;
+  width: 100%;
 }
 
 :deep(
