@@ -155,3 +155,105 @@ func (s *LogService) ClearAllLogs() (int64, error) {
 
 	return result.RowsAffected, nil
 }
+
+// CleanupDetailedContent 清理所有记录的详细内容但保留记录
+func (s *LogService) CleanupDetailedContent() (int64, error) {
+	result := s.DB.Model(&models.RequestLog{}).
+		Where("(request_body != '' OR response_body != '' OR stream_content IS NOT NULL)").
+		Updates(map[string]interface{}{
+			"request_body":   "",
+			"response_body":  "",
+			"stream_content": nil,
+		})
+
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
+}
+
+// CleanupLargeRecords 清理超过指定大小的记录详细内容
+func (s *LogService) CleanupLargeRecords(maxSizeKB int) (int64, error) {
+	maxSizeBytes := maxSizeKB * 1024
+
+	result := s.DB.Model(&models.RequestLog{}).
+		Where("(LENGTH(request_body) + LENGTH(response_body) + LENGTH(COALESCE(stream_content, ''))) > ?", maxSizeBytes).
+		Updates(map[string]interface{}{
+			"request_body":   "",
+			"response_body":  "",
+			"stream_content": nil,
+		})
+
+	if result.Error != nil {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
+}
+
+// CleanupByTimeRange 清理指定时间范围的记录
+func (s *LogService) CleanupByTimeRange(startTime, endTime time.Time, onlyDetails bool) (int64, error) {
+	query := s.DB.Where("timestamp >= ? AND timestamp <= ?", startTime, endTime)
+
+	if onlyDetails {
+		// 只清理详细内容
+		result := query.Model(&models.RequestLog{}).
+			Where("(request_body != '' OR response_body != '' OR stream_content IS NOT NULL)").
+			Updates(map[string]interface{}{
+				"request_body":   "",
+				"response_body":  "",
+				"stream_content": nil,
+			})
+		return result.RowsAffected, result.Error
+	} else {
+		// 删除整条记录
+		result := query.Delete(&models.RequestLog{})
+		return result.RowsAffected, result.Error
+	}
+}
+
+// CleanupByGroup 清理指定分组的记录
+func (s *LogService) CleanupByGroup(groupName string, onlyDetails bool) (int64, error) {
+	query := s.DB.Where("group_name = ?", groupName)
+
+	if onlyDetails {
+		// 只清理详细内容
+		result := query.Model(&models.RequestLog{}).
+			Where("(request_body != '' OR response_body != '' OR stream_content IS NOT NULL)").
+			Updates(map[string]interface{}{
+				"request_body":   "",
+				"response_body":  "",
+				"stream_content": nil,
+			})
+		return result.RowsAffected, result.Error
+	} else {
+		// 删除整条记录
+		result := query.Delete(&models.RequestLog{})
+		return result.RowsAffected, result.Error
+	}
+}
+
+// GetDatabaseSize 获取数据库大小信息
+func (s *LogService) GetDatabaseSize() (map[string]interface{}, error) {
+	var logCount int64
+	if err := s.DB.Model(&models.RequestLog{}).Count(&logCount).Error; err != nil {
+		return nil, err
+	}
+
+	var totalContentSize int64
+	if err := s.DB.Model(&models.RequestLog{}).
+		Select("SUM(LENGTH(request_body) + LENGTH(response_body) + LENGTH(COALESCE(stream_content, '')))").
+		Row().Scan(&totalContentSize); err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{
+		"log_count":          logCount,
+		"total_content_size": totalContentSize,
+		"avg_size_per_log":   func() int64 {
+			if logCount > 0 { return totalContentSize / logCount }
+			return 0
+		}(),
+	}, nil
+}

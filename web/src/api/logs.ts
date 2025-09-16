@@ -54,4 +54,37 @@ export const logApi = {
   clearLogs: async (): Promise<ApiResponse<void>> => {
     return http.post("/logs/clear");
   },
+
+  // 获取数据库统计信息
+  getDatabaseStats: async (): Promise<ApiResponse<{
+    log_count: number;
+    total_content_size: number;
+    avg_size_per_log: number;
+  }>> => {
+    return http.get("/logs/stats");
+  },
+
+  // 清理详细内容
+  cleanupDetailedContent: async (params?: {
+    max_size_kb?: number;
+  }): Promise<ApiResponse<{ cleaned_count: number; message: string }>> => {
+    return http.post("/logs/cleanup/details", params || {});
+  },
+
+  // 按时间范围清理
+  cleanupByTimeRange: async (params: {
+    start_time: string;
+    end_time: string;
+    only_details: boolean;
+  }): Promise<ApiResponse<{ cleaned_count: number; message: string }>> => {
+    return http.post("/logs/cleanup/timerange", params);
+  },
+
+  // 按分组清理
+  cleanupByGroup: async (params: {
+    group_name: string;
+    only_details: boolean;
+  }): Promise<ApiResponse<{ cleaned_count: number; message: string }>> => {
+    return http.post("/logs/cleanup/group", params);
+  },
 };

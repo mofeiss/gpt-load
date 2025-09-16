@@ -22,6 +22,12 @@ type SystemSettings struct {
 	ProxyKeys                      string `json:"proxy_keys" name:"全局代理密钥" category:"基础参数" desc:"全局代理密钥，用于访问所有分组的代理端点。多个密钥请用逗号分隔。" validate:"required"`
 	RequestLogRetentionDays        int    `json:"request_log_retention_days" default:"7" name:"日志保留时长（天）" category:"基础参数" desc:"请求日志在数据库中的保留天数，0为不清理日志。" validate:"required,min=0"`
 	RequestLogWriteIntervalMinutes int    `json:"request_log_write_interval_minutes" default:"1" name:"日志延迟写入周期（分钟）" category:"基础参数" desc:"请求日志从缓存写入数据库的周期（分钟），0为实时写入数据。" validate:"required,min=0"`
+
+	// 日志管理
+	DetailedLogRetentionHours      int    `json:"detailed_log_retention_hours" default:"24" name:"详细内容保留时长（小时）" category:"日志管理" desc:"请求和响应详细内容的保留时间，超过此时间将清理详细内容但保留记录摘要，0为不清理详细内容。" validate:"required,min=0"`
+	CleanupFrequencyMinutes        int    `json:"cleanup_frequency_minutes" default:"30" name:"清理检查频率（分钟）" category:"日志管理" desc:"日志清理服务的运行间隔，建议10-120分钟。" validate:"required,min=5,max=240"`
+	CleanupTriggerDbSizeMB         int    `json:"cleanup_trigger_db_size_mb" default:"100" name:"清理触发阈值（MB）" category:"日志管理" desc:"当数据库大小超过此值时触发额外清理，0为仅按时间清理。" validate:"required,min=0"`
+	MaxRequestBodySizeKB           int    `json:"max_request_body_size_kb" default:"500" name:"单条记录最大大小（KB）" category:"日志管理" desc:"单条日志记录详细内容的最大大小，超过此大小的记录将被优先清理。" validate:"required,min=10"`
 	MaxRequestBodyLogSize         int    `json:"max_request_body_log_size" default:"1048576" name:"请求日志最大大小（字节）" category:"基础参数" desc:"单次请求体记录的最大字节数，默认1MB，超出部分将被截断。" validate:"required,min=1024"`
 	MaxResponseBodyLogSize         int    `json:"max_response_body_log_size" default:"1048576" name:"响应日志最大大小（字节）" category:"基础参数" desc:"单次请求响应体记录的最大字节数，默认1MB，超出部分将被截断。" validate:"required,min=1024"`
 

@@ -166,6 +166,12 @@ func registerProtectedAPIRoutes(api *gin.RouterGroup, serverHandler *handler.Ser
 		logs.GET("/export", serverHandler.ExportLogs)
 		logs.POST("/delete", serverHandler.DeleteLogs)
 		logs.POST("/clear", serverHandler.ClearLogs)
+
+		// 日志清理相关API
+		logs.GET("/stats", serverHandler.GetDatabaseStats)
+		logs.POST("/cleanup/details", serverHandler.CleanupDetailedContent)
+		logs.POST("/cleanup/timerange", serverHandler.CleanupByTimeRange)
+		logs.POST("/cleanup/group", serverHandler.CleanupByGroup)
 	}
 
 	// 设置
