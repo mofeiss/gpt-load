@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "MCPSQLiteServer": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-sqlite", "/Users/ofeiss/docker/gpt-load/data/gpt-load.db"],
+      "env": {}
+    }
+  }
+}
