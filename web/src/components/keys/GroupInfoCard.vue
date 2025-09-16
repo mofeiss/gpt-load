@@ -4,6 +4,11 @@ import type { Group, GroupConfigOption, GroupStatsResponse } from "@/types/model
 import { appState } from "@/utils/app-state";
 import { copy } from "@/utils/clipboard";
 import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
+import {
+  convertCCRConfigToChannel,
+  isValidCCRConfig,
+  getChannelDisplayName
+} from "@/utils/ccr-config-converter";
 import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
 import {
   NButton,
@@ -23,6 +28,7 @@ import {
 } from "naive-ui";
 import { computed, h, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
+import { useAuthKey } from "@/services/auth";
 import GroupCopyModal from "./GroupCopyModal.vue";
 import GroupSettingsForm from "./GroupSettingsForm.vue";
 
@@ -43,6 +49,9 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
 const route = useRoute();
+
+// 获取全局认证密钥
+const authKey = useAuthKey();
 
 const stats = ref<GroupStatsResponse | null>(null);
 const loading = ref(false);
@@ -145,16 +154,42 @@ async function switchChannelType() {
   try {
     channelSwitchLoading.value = true;
 
-    // 调用 API 更新分组渠道类型
-    const updatedGroup = await keysApi.updateGroup(props.group.id, {
+    // 准备更新数据
+    const updateData: any = {
       channel_type: newChannelType,
       validation_endpoint: getChannelEndpoint(newChannelType),
-    });
+    };
+
+    // 如果存在有效的 CCR 配置，则进行格式转换
+    if (props.group.code_snippet && isValidCCRConfig(props.group.code_snippet)) {
+      try {
+        const convertedConfig = convertCCRConfigToChannel(
+          props.group.code_snippet,
+          newChannelType,
+          props.group.name,
+          authKey.value || "全局key"
+        );
+        updateData.code_snippet = convertedConfig;
+
+        message.success(
+          `渠道类型已切换至 ${getChannelDisplayName(newChannelType)}，CCR 配置已自动转换`
+        );
+      } catch (error) {
+        console.error("CCR 配置转换失败:", error);
+        message.warning(
+          `渠道类型已切换至 ${getChannelDisplayName(newChannelType)}，但 CCR 配置转换失败，请手动调整`
+        );
+      }
+    } else {
+      message.success(`渠道类型已切换至 ${getChannelDisplayName(newChannelType)}`);
+    }
+
+    // 调用 API 更新分组
+    const updatedGroup = await keysApi.updateGroup(props.group.id, updateData);
 
     // 通知父组件更新数据
     emit("group-updated", updatedGroup);
 
-    //message.success(`渠道类型已切换至 ${newChannelType}`);
   } catch (error) {
     console.error("切换渠道类型失败:", error);
     message.error("切换渠道类型失败，请稍后重试");

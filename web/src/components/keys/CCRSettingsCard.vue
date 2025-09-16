@@ -4,6 +4,12 @@ import type { Group } from "@/types/models";
 import { keysApi } from "@/api/keys";
 import { useAuthKey } from "@/services/auth";
 import {
+  createOpenAIChannelConfig,
+  createAnthropicChannelConfig,
+  createGeminiChannelConfig,
+  getChannelDisplayName
+} from "@/utils/ccr-config-converter";
+import {
   NCard,
   NButton,
   NSpace,
@@ -102,67 +108,24 @@ function extractModelsFromJson(jsonStr: string): string[] {
 function createOpenAITemplate(): string {
   const groupName = props.group?.name || "分组名";
   const apiKey = authKey.value || "全局key";
-  return JSON.stringify(
-    {
-      name: groupName,
-      api_base_url: `http://localhost:3001/proxy/${groupName}/v1/chat/completions`,
-      api_key: apiKey,
-      models: ["claude-sonnet-4-20250514"],
-      transformer: {
-        use: [
-          [
-            "maxtoken",
-            {
-              max_tokens: 65535,
-            },
-          ],
-        ],
-        "claude-sonnet-4-20250514": {
-          use: ["reasoning"],
-        },
-      },
-    },
-    null,
-    2
-  );
+  const config = createOpenAIChannelConfig(groupName, apiKey);
+  return JSON.stringify(config, null, 2);
 }
 
 // 创建Anthropic模板
 function createAnthropicTemplate(): string {
   const groupName = props.group?.name || "分组名";
   const apiKey = authKey.value || "全局key";
-  return JSON.stringify(
-    {
-      name: groupName,
-      api_base_url: `http://localhost:3001/proxy/${groupName}/v1/messages?beta=true`,
-      api_key: apiKey,
-      models: ["claude-sonnet-4-20250514"],
-      transformer: {
-        use: ["Anthropic"],
-      },
-    },
-    null,
-    2
-  );
+  const config = createAnthropicChannelConfig(groupName, apiKey);
+  return JSON.stringify(config, null, 2);
 }
 
 // 创建Gemini模板
 function createGeminiTemplate(): string {
   const groupName = props.group?.name || "分组名";
   const apiKey = authKey.value || "全局key";
-  return JSON.stringify(
-    {
-      name: groupName,
-      api_base_url: `http://localhost:3001/proxy/${groupName}/v1beta/models/`,
-      api_key: apiKey,
-      models: ["gemini-2.5-pro", "gemini-2.5-flash"],
-      transformer: {
-        use: ["gemini"],
-      },
-    },
-    null,
-    2
-  );
+  const config = createGeminiChannelConfig(groupName, apiKey);
+  return JSON.stringify(config, null, 2);
 }
 
 // 创建默认JSON配置（根据渠道类型选择对应模板）
@@ -195,7 +158,7 @@ async function createDefaultJsonConfig() {
   isLoading.value = true;
   try {
     await keysApi.updateGroup(groupId, { code_snippet: defaultConfig });
-    message.success(`已创建${channelType.toUpperCase()}模板配置`);
+    message.success(`已创建${getChannelDisplayName(channelType)}模板配置`);
 
     // 设置JSON内容并打开模态窗口
     jsonInput.value = defaultConfig;
@@ -231,7 +194,7 @@ function setTemplate(templateType: "openai" | "anthropic" | "gemini") {
       jsonInput.value = createGeminiTemplate();
       break;
   }
-  message.success(`已加载${templateType.toUpperCase()}模板`);
+  message.success(`已加载${getChannelDisplayName(templateType)}模板`);
 }
 
 // 清空JSON输入
