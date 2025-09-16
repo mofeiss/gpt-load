@@ -7,7 +7,7 @@ import {
   createOpenAIChannelConfig,
   createAnthropicChannelConfig,
   createGeminiChannelConfig,
-  getChannelDisplayName
+  getChannelDisplayName,
 } from "@/utils/ccr-config-converter";
 import {
   NCard,
@@ -69,8 +69,12 @@ interface CCRConfig {
   Providers: Array<Record<string, unknown>>;
   Router: {
     default: string;
+    background: string;
     think: string;
     longContext: string;
+    longContextThreshold: number;
+    webSearch: string;
+    image: string;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -335,10 +339,14 @@ async function addToCCR() {
     newConfig.Providers.push(currentGroup);
 
     if (setAsDefault.value && newConfig.Router) {
-      const routerKey = `${currentGroup.name},${selectedDefaultModel.value}`;
-      newConfig.Router.default = routerKey;
-      newConfig.Router.think = routerKey;
-      newConfig.Router.longContext = routerKey;
+      const defaultRouterKey = `agentrouter,${selectedDefaultModel.value}`;
+      newConfig.Router.default = defaultRouterKey;
+      newConfig.Router.background = "bigcoding,glm-4-flash-250414";
+      newConfig.Router.think = "";
+      newConfig.Router.longContext = "";
+      newConfig.Router.longContextThreshold = 60000;
+      newConfig.Router.webSearch = "";
+      newConfig.Router.image = "";
     }
 
     await axios.post("http://127.0.0.1:3456/api/config", newConfig, {
@@ -391,10 +399,14 @@ async function updateCCR() {
     }
 
     if (setAsDefault.value && newConfig.Router) {
-      const routerKey = `${currentGroup.name},${selectedDefaultModel.value}`;
-      newConfig.Router.default = routerKey;
-      newConfig.Router.think = routerKey;
-      newConfig.Router.longContext = routerKey;
+      const defaultRouterKey = `agentrouter,${selectedDefaultModel.value}`;
+      newConfig.Router.default = defaultRouterKey;
+      newConfig.Router.background = "bigcoding,glm-4-flash-250414";
+      newConfig.Router.think = "";
+      newConfig.Router.longContext = "";
+      newConfig.Router.longContextThreshold = 60000;
+      newConfig.Router.webSearch = "";
+      newConfig.Router.image = "";
     }
 
     await axios.post("http://127.0.0.1:3456/api/config", newConfig, {
