@@ -146,9 +146,19 @@ func (s *Server) DeleteCategory(c *gin.Context) {
 
 	categoryID := uint(id)
 
+	// 增强参数验证：确保categoryID有效
+	if categoryID <= 0 {
+		logrus.WithContext(c.Request.Context()).WithField("category_id", categoryID).Error("Invalid category ID: must be positive")
+		response.Error(c, app_errors.NewAPIError(app_errors.ErrBadRequest, "Invalid category ID"))
+		return
+	}
+
+	logrus.WithContext(c.Request.Context()).WithField("category_id", categoryID).Info("Starting category deletion")
+
 	// 开始事务
 	tx := s.DB.Begin()
 	if tx.Error != nil {
+		logrus.WithContext(c.Request.Context()).WithError(tx.Error).Error("Failed to begin transaction")
 		response.Error(c, app_errors.ErrDatabase)
 		return
 	}
@@ -157,39 +167,91 @@ func (s *Server) DeleteCategory(c *gin.Context) {
 	// 检查分类是否存在
 	var category models.Category
 	if err := tx.First(&category, categoryID).Error; err != nil {
+		logrus.WithContext(c.Request.Context()).WithError(err).WithField("category_id", categoryID).Error("Category not found")
 		response.Error(c, app_errors.ParseDBError(err))
 		return
 	}
 
+	logrus.WithContext(c.Request.Context()).WithFields(logrus.Fields{
+		"category_id":   categoryID,
+		"category_name": category.Name,
+	}).Info("Found category for deletion")
+
+	// 操作前统计：查询该分类下有多少group
+	var groupCount int64
+	if err := tx.Model(&models.Group{}).Where("category_id = ?", categoryID).Count(&groupCount).Error; err != nil {
+		logrus.WithContext(c.Request.Context()).WithError(err).WithField("category_id", categoryID).Error("Failed to count groups in category")
+		response.Error(c, app_errors.ParseDBError(err))
+		return
+	}
+
+	logrus.WithContext(c.Request.Context()).WithFields(logrus.Fields{
+		"category_id":   categoryID,
+		"category_name": category.Name,
+		"group_count":   groupCount,
+	}).Info("Found groups in category to be archived")
+
 	// 将该分类下的所有group移到归档
-	if err := tx.Model(&models.Group{}).
+	result := tx.Model(&models.Group{}).
 		Where("category_id = ?", categoryID).
 		Updates(map[string]interface{}{
 			"category_id": nil,
 			"archived":    true,
-		}).Error; err != nil {
-		response.Error(c, app_errors.ParseDBError(err))
+		})
+
+	if result.Error != nil {
+		logrus.WithContext(c.Request.Context()).WithError(result.Error).WithField("category_id", categoryID).Error("Failed to update groups to archived")
+		response.Error(c, app_errors.ParseDBError(result.Error))
 		return
 	}
+
+	// 验证操作结果：受影响的行数应该等于之前统计的数量
+	affectedRows := result.RowsAffected
+	if affectedRows != groupCount {
+		logrus.WithContext(c.Request.Context()).WithFields(logrus.Fields{
+			"category_id":       categoryID,
+			"expected_rows":     groupCount,
+			"affected_rows":     affectedRows,
+		}).Warn("Mismatch between expected and actual affected rows")
+	}
+
+	logrus.WithContext(c.Request.Context()).WithFields(logrus.Fields{
+		"category_id":       categoryID,
+		"category_name":     category.Name,
+		"affected_groups":   affectedRows,
+	}).Info("Successfully archived groups from category")
 
 	// 删除分类
 	if err := tx.Delete(&category).Error; err != nil {
+		logrus.WithContext(c.Request.Context()).WithError(err).WithField("category_id", categoryID).Error("Failed to delete category")
 		response.Error(c, app_errors.ParseDBError(err))
 		return
 	}
 
+	logrus.WithContext(c.Request.Context()).WithField("category_id", categoryID).Info("Successfully deleted category")
+
 	// 提交事务
 	if err := tx.Commit().Error; err != nil {
+		logrus.WithContext(c.Request.Context()).WithError(err).WithField("category_id", categoryID).Error("Failed to commit transaction")
 		response.Error(c, app_errors.ErrDatabase)
 		return
 	}
+
+	logrus.WithContext(c.Request.Context()).WithFields(logrus.Fields{
+		"category_id":       categoryID,
+		"category_name":     category.Name,
+		"archived_groups":   affectedRows,
+	}).Info("Category deletion transaction committed successfully")
 
 	// 清除缓存
 	if err := s.GroupManager.Invalidate(); err != nil {
 		logrus.WithContext(c.Request.Context()).WithError(err).Error("failed to invalidate group cache")
 	}
 
-	response.Success(c, gin.H{"message": "分类删除成功，关联的分组已移至归档"})
+	response.Success(c, gin.H{
+		"message":         "分类删除成功，关联的分组已移至归档",
+		"archived_groups": affectedRows,
+	})
 }
 
 // UpdateCategoriesOrder 批量更新分类排序
