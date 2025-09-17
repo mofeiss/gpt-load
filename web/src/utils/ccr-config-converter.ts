@@ -49,7 +49,7 @@ export function extractConfigMetadata(jsonStr: string): {
     return {
       models: Array.isArray(models) ? models : [],
       customTransformer: transformer,
-      otherFields: Object.keys(otherFields).length > 0 ? otherFields : undefined
+      otherFields: Object.keys(otherFields).length > 0 ? otherFields : undefined,
     };
   } catch {
     return { models: [] };
@@ -80,7 +80,7 @@ export function createOpenAIChannelConfig(
           },
         ],
       ],
-    }
+    },
   };
 
   // 为每个模型添加 reasoning 配置（OpenAI 特有）
@@ -112,7 +112,7 @@ export function createAnthropicChannelConfig(
     models: modelList,
     transformer: {
       use: ["Anthropic"],
-    }
+    },
   };
 }
 
@@ -133,7 +133,7 @@ export function createGeminiChannelConfig(
     models: modelList,
     transformer: {
       use: ["gemini"],
-    }
+    },
   };
 }
 
@@ -143,7 +143,7 @@ export function createGeminiChannelConfig(
  */
 export function convertCCRConfigToChannel(
   currentJsonStr: string,
-  targetChannelType: 'openai' | 'anthropic' | 'gemini',
+  targetChannelType: "openai" | "anthropic" | "gemini",
   groupName: string,
   apiKey: string
 ): string {
@@ -154,13 +154,13 @@ export function convertCCRConfigToChannel(
   let newConfig: CCRProviderConfig;
 
   switch (targetChannelType) {
-    case 'openai':
+    case "openai":
       newConfig = createOpenAIChannelConfig(groupName, apiKey, existingModels);
       break;
-    case 'anthropic':
+    case "anthropic":
       newConfig = createAnthropicChannelConfig(groupName, apiKey, existingModels);
       break;
-    case 'gemini':
+    case "gemini":
       newConfig = createGeminiChannelConfig(groupName, apiKey, existingModels);
       break;
     default:
@@ -175,9 +175,9 @@ export function convertCCRConfigToChannel(
  */
 export function getChannelDisplayName(channelType: string): string {
   const channelNames: Record<string, string> = {
-    'openai': 'OpenAI',
-    'anthropic': 'Anthropic',
-    'gemini': 'Gemini'
+    openai: "OpenAI",
+    anthropic: "Anthropic",
+    gemini: "Gemini",
   };
   return channelNames[channelType] || channelType.toUpperCase();
 }

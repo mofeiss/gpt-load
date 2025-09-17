@@ -354,7 +354,7 @@ onUnmounted(() => {
 watch([currentPage, pageSize], loadLogs);
 
 // 监听清理工具模态框打开状态
-watch(showCleanupModal, (newValue) => {
+watch(showCleanupModal, newValue => {
   if (newValue) {
     loadDatabaseStats();
   }
@@ -434,11 +434,11 @@ const clearLogs = async () => {
 
 // 清理工具相关方法
 const formatBytes = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) return "0 Bytes";
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
 
 const loadDatabaseStats = async () => {
@@ -460,7 +460,8 @@ const loadDatabaseStats = async () => {
 const cleanupDetailedContent = async () => {
   try {
     cleanupLoading.value = true;
-    const params = cleanupConfig.maxSizeKB > 0 ? { max_size_kb: cleanupConfig.maxSizeKB } : undefined;
+    const params =
+      cleanupConfig.maxSizeKB > 0 ? { max_size_kb: cleanupConfig.maxSizeKB } : undefined;
     const res = await logApi.cleanupDetailedContent(params);
     if (res.code === 0) {
       message.success(res.data.message);
@@ -1035,7 +1036,12 @@ const selectedCount = computed(() => selectedLogIds.value.length);
     </n-modal>
 
     <!-- 清理工具模态框 -->
-    <n-modal v-model:show="showCleanupModal" preset="card" title="数据库清理工具" style="width: 600px">
+    <n-modal
+      v-model:show="showCleanupModal"
+      preset="card"
+      title="数据库清理工具"
+      style="width: 600px"
+    >
       <div class="cleanup-tool-container">
         <!-- 数据库统计信息 -->
         <n-card title="数据库状态" style="margin-bottom: 16px">
@@ -1044,7 +1050,9 @@ const selectedCount = computed(() => selectedLogIds.value.length);
             <p>详细内容总大小: {{ formatBytes(dbStats.total_content_size) }}</p>
             <p>平均每条记录大小: {{ formatBytes(dbStats.avg_size_per_log) }}</p>
           </div>
-          <n-button size="small" @click="loadDatabaseStats" :loading="statsLoading">刷新统计</n-button>
+          <n-button size="small" @click="loadDatabaseStats" :loading="statsLoading">
+            刷新统计
+          </n-button>
         </n-card>
 
         <!-- 清理操作 -->
@@ -1062,7 +1070,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                 清理详细内容
               </n-button>
             </n-space>
-            <p style="font-size: 12px; color: #666; margin-top: 8px;">
+            <p style="font-size: 12px; color: #666; margin-top: 8px">
               清理请求体、响应体和流式内容，但保留日志记录摘要
             </p>
           </n-card>
@@ -1077,9 +1085,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                   format="yyyy-MM-dd HH:mm:ss"
                   style="width: 300px"
                 />
-                <n-checkbox v-model:checked="cleanupConfig.onlyDetails">
-                  仅清理详细内容
-                </n-checkbox>
+                <n-checkbox v-model:checked="cleanupConfig.onlyDetails">仅清理详细内容</n-checkbox>
               </n-space>
               <n-button @click="cleanupByTimeRange" :loading="cleanupLoading" type="warning">
                 按时间清理

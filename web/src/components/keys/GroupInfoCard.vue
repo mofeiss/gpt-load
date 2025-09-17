@@ -7,7 +7,7 @@ import { getGroupDisplayName, maskProxyKeys } from "@/utils/display";
 import {
   convertCCRConfigToChannel,
   isValidCCRConfig,
-  getChannelDisplayName
+  getChannelDisplayName,
 } from "@/utils/ccr-config-converter";
 import { CopyOutline, EyeOffOutline, EyeOutline, Pencil, Refresh, Trash } from "@vicons/ionicons5";
 import {
@@ -189,7 +189,6 @@ async function switchChannelType() {
 
     // 通知父组件更新数据
     emit("group-updated", updatedGroup);
-
   } catch (error) {
     console.error("切换渠道类型失败:", error);
     message.error("切换渠道类型失败，请稍后重试");

@@ -56,11 +56,13 @@ export const logApi = {
   },
 
   // 获取数据库统计信息
-  getDatabaseStats: async (): Promise<ApiResponse<{
-    log_count: number;
-    total_content_size: number;
-    avg_size_per_log: number;
-  }>> => {
+  getDatabaseStats: async (): Promise<
+    ApiResponse<{
+      log_count: number;
+      total_content_size: number;
+      avg_size_per_log: number;
+    }>
+  > => {
     return http.get("/logs/stats");
   },
 

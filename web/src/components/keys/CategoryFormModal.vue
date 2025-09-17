@@ -120,8 +120,8 @@ async function handleSubmit() {
 
     <template #footer>
       <div class="modal-footer">
-        <n-button @click="handleClose"> 取消 </n-button>
-        <n-button type="primary" :loading="loading" @click="handleSubmit"> 确定 </n-button>
+        <n-button @click="handleClose">取消</n-button>
+        <n-button type="primary" :loading="loading" @click="handleSubmit">确定</n-button>
       </div>
     </template>
   </n-modal>

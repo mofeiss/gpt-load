@@ -74,7 +74,10 @@ const sortedCategories = computed(() => {
   const otherCategories = categories.value.filter(cat => cat.name !== "archived");
 
   // 其他分类按 sort 排序，归档分类固定在最后
-  return [...otherCategories.sort((a, b) => a.sort - b.sort), ...(archivedCategory ? [archivedCategory] : [])];
+  return [
+    ...otherCategories.sort((a, b) => a.sort - b.sort),
+    ...(archivedCategory ? [archivedCategory] : []),
+  ];
 });
 
 // 监听 props 变化，更新本地状态
@@ -83,7 +86,12 @@ watch(
   ([newGroups, newCategories]) => {
     log(
       "Groups or categories changed, updating local draggable lists",
-      newGroups.map(g => ({ id: g.id, name: g.name, archived: g.archived, category_id: g.category_id }))
+      newGroups.map(g => ({
+        id: g.id,
+        name: g.name,
+        archived: g.archived,
+        category_id: g.category_id,
+      }))
     );
 
     // 分类未分类的组（category_id 为 null 且 archived 为 false）
@@ -96,7 +104,7 @@ watch(
         // 归档分类包含：有 category_id 指向该分类的组 + archived=true 的组
         categoryGroupsMap[cat.id] = [
           ...newGroups.filter(g => g.category_id === cat.id),
-          ...newGroups.filter(g => g.archived && !g.category_id)
+          ...newGroups.filter(g => g.archived && !g.category_id),
         ];
       } else {
         // 其他分类只包含明确指定 category_id 的组
@@ -133,7 +141,11 @@ function handleDragEnd() {
 
   log("Final list state", {
     uncategorized: uncategorized.map(g => ({ id: g.id, name: g.name })),
-    categorized: allCategoryGroups.map(g => ({ id: g.id, name: g.name, category_id: g.category_id })),
+    categorized: allCategoryGroups.map(g => ({
+      id: g.id,
+      name: g.name,
+      category_id: g.category_id,
+    })),
   });
 
   // 构建最终的组列表
@@ -174,13 +186,16 @@ function handleDragEnd() {
     });
   });
 
-  log("Emitting SINGLE 'groups-order-updated' with final payload", finalPayload.map(g => ({
-    id: g.id,
-    name: g.name,
-    archived: g.archived,
-    category_id: g.category_id,
-    sort: g.sort
-  })));
+  log(
+    "Emitting SINGLE 'groups-order-updated' with final payload",
+    finalPayload.map(g => ({
+      id: g.id,
+      name: g.name,
+      archived: g.archived,
+      category_id: g.category_id,
+      sort: g.sort,
+    }))
+  );
 
   emit("groups-order-updated", finalPayload);
 }
@@ -278,7 +293,7 @@ watch(categoryExpandedArray, newValue => {
 
 // 拖拽自动展开分类处理函数
 function handleCategoryDragEnter(categoryId: number) {
-  console.log('Drag enter category:', categoryId);
+  console.log("Drag enter category:", categoryId);
 
   // 如果已经是当前悬停的分类，不重复处理
   if (currentDragOverCategory.value === categoryId) {
@@ -291,7 +306,7 @@ function handleCategoryDragEnter(categoryId: number) {
   // 如果分类已经展开，不需要处理
   const categoryKey = `category-${categoryId}`;
   if (categoryExpandedArray.value.includes(categoryKey)) {
-    console.log('Category already expanded:', categoryKey);
+    console.log("Category already expanded:", categoryKey);
     return;
   }
 
@@ -300,16 +315,21 @@ function handleCategoryDragEnter(categoryId: number) {
     clearTimeout(dragExpandTimer.value);
   }
 
-  console.log('Setting expand timer for category:', categoryId);
+  console.log("Setting expand timer for category:", categoryId);
 
   // 设置200ms延迟自动展开
   dragExpandTimer.value = setTimeout(() => {
-    console.log('Timer triggered for category:', categoryId, 'Current hover:', currentDragOverCategory.value);
+    console.log(
+      "Timer triggered for category:",
+      categoryId,
+      "Current hover:",
+      currentDragOverCategory.value
+    );
     // 检查是否还在同一个分类上
     if (currentDragOverCategory.value === categoryId) {
       // 自动展开分类
       if (!categoryExpandedArray.value.includes(categoryKey)) {
-        console.log('Auto expanding category:', categoryKey);
+        console.log("Auto expanding category:", categoryKey);
         categoryExpandedArray.value.push(categoryKey);
 
         // 展开后，等待一小段时间让DOM更新，然后触发拖拽区域的dragover效果
@@ -322,7 +342,7 @@ function handleCategoryDragEnter(categoryId: number) {
 }
 
 function handleCategoryDragLeave(categoryId: number) {
-  console.log('Drag leave category:', categoryId);
+  console.log("Drag leave category:", categoryId);
   // dragleave 事件不可靠，这里只做记录，不清除定时器
 }
 
@@ -339,7 +359,7 @@ function handleCategoryDragOver(event: DragEvent, categoryId: number) {
 
 // 添加全局拖拽结束事件监听，用于清理状态
 function handleGlobalDragEnd() {
-  console.log('Global drag end - cleaning up');
+  console.log("Global drag end - cleaning up");
   currentDragOverCategory.value = null;
   if (dragExpandTimer.value) {
     clearTimeout(dragExpandTimer.value);
@@ -347,18 +367,18 @@ function handleGlobalDragEnd() {
   }
 
   // 清理所有自动展开占位符
-  const placeholders = document.querySelectorAll('.auto-expand-placeholder');
+  const placeholders = document.querySelectorAll(".auto-expand-placeholder");
   placeholders.forEach(placeholder => {
     if (placeholder.parentNode) {
       placeholder.parentNode.removeChild(placeholder);
-      console.log('Removed auto-expand placeholder');
+      console.log("Removed auto-expand placeholder");
     }
   });
 }
 
 // 在分类展开后触发拖拽区域的dragover效果
 function triggerDragOverInCategory(categoryId: number) {
-  console.log('Triggering drag over in expanded category:', categoryId);
+  console.log("Triggering drag over in expanded category:", categoryId);
 
   // 查找对应分类的拖拽容器DOM元素
   const categoryKey = `category-${categoryId}`;
@@ -366,20 +386,20 @@ function triggerDragOverInCategory(categoryId: number) {
 
   if (collapseItem) {
     // 查找分类内容区域的拖拽容器
-    const dragContainer = collapseItem.querySelector('.category-list, .archived-list');
+    const dragContainer = collapseItem.querySelector(".category-list, .archived-list");
 
     if (dragContainer) {
-      console.log('Found drag container, creating placeholder');
+      console.log("Found drag container, creating placeholder");
 
       // 检查是否已经有占位符
-      const existingPlaceholder = dragContainer.querySelector('.auto-expand-placeholder');
+      const existingPlaceholder = dragContainer.querySelector(".auto-expand-placeholder");
       if (existingPlaceholder) {
         return;
       }
 
       // 手动创建一个占位符元素
-      const placeholder = document.createElement('div');
-      placeholder.className = 'sortable-ghost auto-expand-placeholder';
+      const placeholder = document.createElement("div");
+      placeholder.className = "sortable-ghost auto-expand-placeholder";
       placeholder.style.cssText = `
         opacity: 1;
         background: transparent;
@@ -393,21 +413,20 @@ function triggerDragOverInCategory(categoryId: number) {
       // 插入占位符到容器的开头
       dragContainer.insertBefore(placeholder, dragContainer.firstChild);
 
-      console.log('Placeholder created in drag container');
+      console.log("Placeholder created in drag container");
 
       // 5秒后移除占位符（防止永久存在）
       setTimeout(() => {
         if (placeholder.parentNode) {
           placeholder.parentNode.removeChild(placeholder);
-          console.log('Auto-expand placeholder removed');
+          console.log("Auto-expand placeholder removed");
         }
       }, 5000);
-
     } else {
-      console.log('Drag container not found in category');
+      console.log("Drag container not found in category");
     }
   } else {
-    console.log('Category collapse item not found');
+    console.log("Category collapse item not found");
   }
 }
 
@@ -632,7 +651,9 @@ function handleCategoryCreatedOrUpdated() {
                     <span
                       :class="category.name === 'archived' ? 'archived-title' : 'category-title'"
                     >
-                      {{ category.name === 'archived' ? '归档' : category.name }} ({{ (localCategoryGroups[category.id] || []).length }})
+                      {{ category.name === "archived" ? "归档" : category.name }} ({{
+                        (localCategoryGroups[category.id] || []).length
+                      }})
                     </span>
                   </div>
                 </template>
@@ -652,7 +673,7 @@ function handleCategoryCreatedOrUpdated() {
                     :class="[
                       'group-item',
                       category.name === 'archived' ? 'archived-item' : 'categorized-item',
-                      { active: selectedGroup?.id === group.id }
+                      { active: selectedGroup?.id === group.id },
                     ]"
                     @click="handleGroupClick(group)"
                     @contextmenu="handleContextMenu($event, group)"
@@ -660,7 +681,7 @@ function handleCategoryCreatedOrUpdated() {
                     <div
                       :class="[
                         'group-icon',
-                        category.name === 'archived' ? 'archived-icon' : 'categorized-icon'
+                        category.name === 'archived' ? 'archived-icon' : 'categorized-icon',
                       ]"
                     >
                       <span v-if="group.channel_type === 'openai'">🤖</span>
@@ -671,7 +692,7 @@ function handleCategoryCreatedOrUpdated() {
                     <div
                       :class="[
                         'group-content',
-                        category.name === 'archived' ? 'archived-content' : 'categorized-content'
+                        category.name === 'archived' ? 'archived-content' : 'categorized-content',
                       ]"
                     >
                       <div class="group-name">{{ getGroupDisplayName(group) }}</div>
@@ -735,7 +756,12 @@ function handleCategoryCreatedOrUpdated() {
       :y="blankContextMenuData.y"
       placement="bottom-start"
       @clickoutside="blankContextMenuData.show = false"
-      @select="(key: string) => { if (key === 'add-category') openCreateCategoryModal(); blankContextMenuData.show = false; }"
+      @select="
+        (key: string) => {
+          if (key === 'add-category') openCreateCategoryModal();
+          blankContextMenuData.show = false;
+        }
+      "
     />
 
     <!-- 分组创建/编辑模态框 -->

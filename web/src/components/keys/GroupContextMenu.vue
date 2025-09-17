@@ -4,6 +4,7 @@ import { keysApi } from "@/api/keys";
 import { categoriesApi } from "@/api/categories";
 import { NDropdown, useDialog, useMessage } from "naive-ui";
 import { computed, ref, onMounted, watch } from "vue";
+import axios from "axios";
 
 interface Props {
   group: Group;
@@ -52,11 +53,14 @@ const refreshCategories = async () => {
 };
 
 // 监听菜单显示状态，显示时刷新分类数据
-watch(() => props.show, async (newShow) => {
-  if (newShow) {
-    await refreshCategories();
+watch(
+  () => props.show,
+  async newShow => {
+    if (newShow) {
+      await refreshCategories();
+    }
   }
-});
+);
 
 // 加载分类数据
 onMounted(async () => {
@@ -188,6 +192,13 @@ async function handleMenuSelect(key: string) {
             if (!props.group.id) {
               throw new Error("节点ID不能为空");
             }
+
+            // 如果节点有CCR配置，先从CCR移除
+            if (props.group.code_snippet && props.group.code_snippet.trim() !== "") {
+              await removeFromCCR();
+            }
+
+            // 然后从数据库删除节点
             await keysApi.deleteGroup(props.group.id);
             message.success("节点删除成功");
             emit("delete", props.group);
@@ -317,6 +328,56 @@ async function unarchiveGroup() {
     message.error("取消归档失败");
   } finally {
     isProcessing.value = false;
+  }
+}
+
+// 从CCR移除节点
+async function removeFromCCR() {
+  if (!props.group || !props.group.code_snippet) {
+    return;
+  }
+
+  try {
+    const currentGroup = JSON.parse(props.group.code_snippet);
+
+    // 获取CCR配置
+    const response = await axios.get("http://127.0.0.1:3456/api/config", {
+      headers: {
+        "X-API-Key": "1968121800",
+      },
+    });
+
+    const ccrConfig = response.data;
+    const newConfig = { ...ccrConfig };
+
+    if (newConfig.Providers) {
+      newConfig.Providers = newConfig.Providers.filter(
+        (p: Record<string, unknown>) => p.name !== currentGroup.name
+      );
+    }
+
+    await axios.post("http://127.0.0.1:3456/api/config", newConfig, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-Key": "1968121800",
+      },
+    });
+
+    await axios.post(
+      "http://127.0.0.1:3456/api/restart",
+      {},
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": "1968121800",
+        },
+      }
+    );
+
+    message.success("成功从 CCR 移除节点");
+  } catch (error) {
+    console.error("从 CCR 移除失败:", error);
+    message.warning("从 CCR 移除失败，但将继续删除节点");
   }
 }
 </script>

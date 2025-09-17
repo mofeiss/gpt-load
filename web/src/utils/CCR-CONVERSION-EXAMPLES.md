@@ -3,16 +3,19 @@
 ## 转换规则说明
 
 ### OpenAI 渠道特征
+
 - API 端点：`/v1/chat/completions`
 - Transformer 包含：
   - `maxtoken` 配置（全局）
   - 每个模型的 `reasoning` 配置（模型级）
 
 ### Anthropic 渠道特征
+
 - API 端点：`/v1/messages?beta=true`
 - Transformer 只包含：`["Anthropic"]` 标识
 
 ### Gemini 渠道特征
+
 - API 端点：`/v1beta/models/`
 - Transformer 只包含：`["gemini"]` 标识
 
@@ -21,6 +24,7 @@
 ### 1. OpenAI → Anthropic
 
 **输入（OpenAI）：**
+
 ```json
 {
   "name": "kyxcode",
@@ -28,14 +32,15 @@
   "api_key": "1968121800",
   "models": ["claude-sonnet-4-20250514", "gpt-4"],
   "transformer": {
-    "use": [["maxtoken", {"max_tokens": 65535}]],
-    "claude-sonnet-4-20250514": {"use": ["reasoning"]},
-    "gpt-4": {"use": ["reasoning"]}
+    "use": [["maxtoken", { "max_tokens": 65535 }]],
+    "claude-sonnet-4-20250514": { "use": ["reasoning"] },
+    "gpt-4": { "use": ["reasoning"] }
   }
 }
 ```
 
 **输出（Anthropic）：**
+
 ```json
 {
   "name": "kyxcode",
@@ -51,6 +56,7 @@
 ### 2. Anthropic → Gemini
 
 **输入（Anthropic）：**
+
 ```json
 {
   "name": "kyxcode",
@@ -64,6 +70,7 @@
 ```
 
 **输出（Gemini）：**
+
 ```json
 {
   "name": "kyxcode",
@@ -79,6 +86,7 @@
 ### 3. Gemini → OpenAI
 
 **输入（Gemini）：**
+
 ```json
 {
   "name": "kyxcode",
@@ -92,6 +100,7 @@
 ```
 
 **输出（OpenAI）：**
+
 ```json
 {
   "name": "kyxcode",
@@ -99,9 +108,9 @@
   "api_key": "1968121800",
   "models": ["gemini-2.5-pro", "gemini-2.5-flash"],
   "transformer": {
-    "use": [["maxtoken", {"max_tokens": 65535}]],
-    "gemini-2.5-pro": {"use": ["reasoning"]},
-    "gemini-2.5-flash": {"use": ["reasoning"]}
+    "use": [["maxtoken", { "max_tokens": 65535 }]],
+    "gemini-2.5-pro": { "use": ["reasoning"] },
+    "gemini-2.5-flash": { "use": ["reasoning"] }
   }
 }
 ```
