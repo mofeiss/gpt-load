@@ -70,12 +70,11 @@ function renderMenuItem(key: string, label: string, icon: string): MenuOption {
   text-decoration: none;
   color: inherit;
   padding: 8px 12px;
-  border-radius: var(--border-radius-md);
   transition: all 0.3s ease;
   font-weight: 500;
   cursor: pointer;
   position: relative;
-  min-width: 100px;
+  min-width: 80px;
   justify-content: center;
 }
 
@@ -89,7 +88,6 @@ function renderMenuItem(key: string, label: string, icon: string): MenuOption {
 }
 
 :deep(.n-menu-item) {
-  border-radius: var(--border-radius-md);
   cursor: pointer;
   position: relative;
   transition: all 0.3s ease;
@@ -110,70 +108,52 @@ function renderMenuItem(key: string, label: string, icon: string): MenuOption {
   margin: 4px 8px;
 }
 
-/* Hover 状态 - 作用在 nav-menu-item 上 */
-:deep(.n-menu-item:hover .nav-menu-item) {
-  background: rgba(102, 126, 234, 0.15) !important;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+/* Hover 状态 - 只显示底部线条 */
+:deep(.n-menu-item:hover .nav-menu-item::after) {
+  opacity: 0.5;
 }
 
-:deep(.n-menu-item:hover .nav-item-icon) {
-  transform: scale(1.05);
-}
-
-/* Active 状态 - 作用在 nav-menu-item 上 */
+/* Active 状态 - 只显示颜色变化和底部线条 */
 :deep(.nav-menu-item--active) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  color: white !important;
+  color: #667eea !important;
   font-weight: 600;
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px);
 }
 
 :deep(.nav-menu-item--active .nav-item-icon) {
-  transform: scale(1.1);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-  color: white !important;
+  color: #667eea !important;
 }
 
 :deep(.nav-menu-item--active .nav-item-text) {
   font-weight: 600;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  color: white !important;
+  color: #667eea !important;
 }
 
-/* Active hover 状态 */
-:deep(.n-menu-item:hover .nav-menu-item--active) {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%) !important;
-  transform: translateY(-2px);
-  box-shadow:
-    0 10px 15px -3px rgba(0, 0, 0, 0.1),
-    0 4px 6px -2px rgba(0, 0, 0, 0.05);
-}
-
-/* 添加底部指示器 */
-:deep(.nav-menu-item--active::after) {
+/* 添加底部指示器 - 统一使用3px高度的线条 */
+:deep(.nav-menu-item::after) {
   content: "";
   position: absolute;
-  bottom: -2px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 2px;
-  background: white;
-  border-radius: 1px;
-  opacity: 0.8;
+  width: 60%;
+  height: 3px;
+  background: #667eea;
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-:deep(.n-menu--vertical .nav-menu-item--active::after) {
+:deep(.nav-menu-item--active::after) {
+  opacity: 1;
+}
+
+:deep(.n-menu--vertical .nav-menu-item::after) {
   bottom: auto;
-  right: -2px;
+  right: 0;
   left: auto;
   top: 50%;
   transform: translateY(-50%);
-  width: 2px;
-  height: 20px;
+  width: 3px;
+  height: 60%;
 }
 </style>
