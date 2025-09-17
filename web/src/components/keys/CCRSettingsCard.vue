@@ -339,8 +339,8 @@ async function addToCCR() {
     newConfig.Providers.push(currentGroup);
 
     if (setAsDefault.value && newConfig.Router) {
-      const defaultRouterKey = `agentrouter,${selectedDefaultModel.value}`;
-      newConfig.Router.default = defaultRouterKey;
+      const routerKey = `${currentGroup.name},${selectedDefaultModel.value}`;
+      newConfig.Router.default = routerKey;
       newConfig.Router.background = "bigcoding,glm-4-flash-250414";
       newConfig.Router.think = "";
       newConfig.Router.longContext = "";
@@ -399,8 +399,8 @@ async function updateCCR() {
     }
 
     if (setAsDefault.value && newConfig.Router) {
-      const defaultRouterKey = `agentrouter,${selectedDefaultModel.value}`;
-      newConfig.Router.default = defaultRouterKey;
+      const routerKey = `${currentGroup.name},${selectedDefaultModel.value}`;
+      newConfig.Router.default = routerKey;
       newConfig.Router.background = "bigcoding,glm-4-flash-250414";
       newConfig.Router.think = "";
       newConfig.Router.longContext = "";
