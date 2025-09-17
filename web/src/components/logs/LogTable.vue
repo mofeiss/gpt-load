@@ -26,7 +26,6 @@ import {
   NEllipsis,
   NIcon,
   NInput,
-  NInputNumber,
   NModal,
   NPopconfirm,
   NSelect,
@@ -67,21 +66,6 @@ const selectedLog = ref<LogRow | null>(null);
 
 // 清理工具相关
 const showCleanupModal = ref(false);
-const cleanupLoading = ref(false);
-const statsLoading = ref(false);
-const dbStats = ref<{
-  log_count: number;
-  total_content_size: number;
-  avg_size_per_log: number;
-} | null>(null);
-
-const cleanupConfig = reactive({
-  maxSizeKB: 500,
-  timeRange: null as [number, number] | null,
-  onlyDetails: true,
-  groupName: "",
-  onlyDetailsGroup: true,
-});
 
 // 请求信息折叠控制
 const isRequestInfoCollapsed = ref(false);
@@ -353,13 +337,6 @@ onUnmounted(() => {
 });
 watch([currentPage, pageSize], loadLogs);
 
-// 监听清理工具模态框打开状态
-watch(showCleanupModal, newValue => {
-  if (newValue) {
-    loadDatabaseStats();
-  }
-});
-
 const handleSearch = () => {
   currentPage.value = 1;
   loadLogs();
@@ -407,6 +384,7 @@ const deleteLogs = async () => {
       message.success(`成功删除 ${selectedLogIds.value.length} 条日志`);
       selectedLogIds.value = [];
       selectAll.value = false;
+      showCleanupModal.value = false; // 关闭清理工具模态框
       loadLogs();
     } else {
       message.error(res.message || "删除日志失败");
@@ -423,111 +401,13 @@ const clearLogs = async () => {
       message.success("成功清空所有日志");
       selectedLogIds.value = [];
       selectAll.value = false;
+      showCleanupModal.value = false; // 关闭清理工具模态框
       loadLogs();
     } else {
       message.error(res.message || "清空日志失败");
     }
   } catch (_error) {
     message.error("清空日志请求失败");
-  }
-};
-
-// 清理工具相关方法
-const formatBytes = (bytes: number) => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
-
-const loadDatabaseStats = async () => {
-  try {
-    statsLoading.value = true;
-    const res = await logApi.getDatabaseStats();
-    if (res.code === 0) {
-      dbStats.value = res.data;
-    } else {
-      message.error(res.message || "获取数据库统计失败");
-    }
-  } catch (_error) {
-    message.error("获取数据库统计请求失败");
-  } finally {
-    statsLoading.value = false;
-  }
-};
-
-const cleanupDetailedContent = async () => {
-  try {
-    cleanupLoading.value = true;
-    const params =
-      cleanupConfig.maxSizeKB > 0 ? { max_size_kb: cleanupConfig.maxSizeKB } : undefined;
-    const res = await logApi.cleanupDetailedContent(params);
-    if (res.code === 0) {
-      message.success(res.data.message);
-      loadDatabaseStats();
-      loadLogs();
-    } else {
-      message.error(res.message || "清理详细内容失败");
-    }
-  } catch (_error) {
-    message.error("清理详细内容请求失败");
-  } finally {
-    cleanupLoading.value = false;
-  }
-};
-
-const cleanupByTimeRange = async () => {
-  if (!cleanupConfig.timeRange) {
-    message.warning("请选择时间范围");
-    return;
-  }
-
-  try {
-    cleanupLoading.value = true;
-    const [startTime, endTime] = cleanupConfig.timeRange;
-    const res = await logApi.cleanupByTimeRange({
-      start_time: new Date(startTime).toISOString(),
-      end_time: new Date(endTime).toISOString(),
-      only_details: cleanupConfig.onlyDetails,
-    });
-    if (res.code === 0) {
-      message.success(res.data.message);
-      loadDatabaseStats();
-      loadLogs();
-    } else {
-      message.error(res.message || "按时间范围清理失败");
-    }
-  } catch (_error) {
-    message.error("按时间范围清理请求失败");
-  } finally {
-    cleanupLoading.value = false;
-  }
-};
-
-const cleanupByGroup = async () => {
-  if (!cleanupConfig.groupName.trim()) {
-    message.warning("请输入分组名称");
-    return;
-  }
-
-  try {
-    cleanupLoading.value = true;
-    const res = await logApi.cleanupByGroup({
-      group_name: cleanupConfig.groupName.trim(),
-      only_details: cleanupConfig.onlyDetailsGroup,
-    });
-    if (res.code === 0) {
-      message.success(res.data.message);
-      loadDatabaseStats();
-      loadLogs();
-    } else {
-      message.error(res.message || "按分组清理失败");
-    }
-  } catch (_error) {
-    message.error("按分组清理请求失败");
-  } finally {
-    cleanupLoading.value = false;
   }
 };
 
@@ -696,13 +576,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
                   确定要清空所有日志吗？此操作不可撤销，请谨慎操作。
                 </n-popconfirm>
 
-                <!-- 数据库清理工具 -->
-                <n-button size="small" @click="showCleanupModal = true" type="info" ghost>
-                  <template #icon>
-                    <n-icon :component="DocumentTextOutline" />
-                  </template>
-                  清理工具
-                </n-button>
+                
                 <div class="auto-refresh-control">
                   <n-checkbox v-model:checked="autoRefresh" @update:checked="toggleAutoRefresh">
                     自动刷新
@@ -1035,83 +909,7 @@ const selectedCount = computed(() => selectedLogIds.value.length);
       </div>
     </n-modal>
 
-    <!-- 清理工具模态框 -->
-    <n-modal
-      v-model:show="showCleanupModal"
-      preset="card"
-      title="数据库清理工具"
-      style="width: 600px"
-    >
-      <div class="cleanup-tool-container">
-        <!-- 数据库统计信息 -->
-        <n-card title="数据库状态" style="margin-bottom: 16px">
-          <div v-if="dbStats">
-            <p>日志记录数量: {{ dbStats.log_count.toLocaleString() }}</p>
-            <p>详细内容总大小: {{ formatBytes(dbStats.total_content_size) }}</p>
-            <p>平均每条记录大小: {{ formatBytes(dbStats.avg_size_per_log) }}</p>
-          </div>
-          <n-button size="small" @click="loadDatabaseStats" :loading="statsLoading">
-            刷新统计
-          </n-button>
-        </n-card>
 
-        <!-- 清理操作 -->
-        <n-space vertical>
-          <!-- 清理详细内容 -->
-          <n-card title="清理详细内容" size="small">
-            <n-space>
-              <n-input-number
-                v-model:value="cleanupConfig.maxSizeKB"
-                placeholder="最大大小(KB)"
-                style="width: 150px"
-                :min="1"
-              />
-              <n-button @click="cleanupDetailedContent" :loading="cleanupLoading" type="warning">
-                清理详细内容
-              </n-button>
-            </n-space>
-            <p style="font-size: 12px; color: #666; margin-top: 8px">
-              清理请求体、响应体和流式内容，但保留日志记录摘要
-            </p>
-          </n-card>
-
-          <!-- 按时间范围清理 -->
-          <n-card title="按时间范围清理" size="small">
-            <n-space vertical>
-              <n-space>
-                <n-date-picker
-                  v-model:value="cleanupConfig.timeRange"
-                  type="datetimerange"
-                  format="yyyy-MM-dd HH:mm:ss"
-                  style="width: 300px"
-                />
-                <n-checkbox v-model:checked="cleanupConfig.onlyDetails">仅清理详细内容</n-checkbox>
-              </n-space>
-              <n-button @click="cleanupByTimeRange" :loading="cleanupLoading" type="warning">
-                按时间清理
-              </n-button>
-            </n-space>
-          </n-card>
-
-          <!-- 按分组清理 -->
-          <n-card title="按分组清理" size="small">
-            <n-space>
-              <n-input
-                v-model:value="cleanupConfig.groupName"
-                placeholder="分组名称"
-                style="width: 200px"
-              />
-              <n-checkbox v-model:checked="cleanupConfig.onlyDetailsGroup">
-                仅清理详细内容
-              </n-checkbox>
-              <n-button @click="cleanupByGroup" :loading="cleanupLoading" type="warning">
-                按分组清理
-              </n-button>
-            </n-space>
-          </n-card>
-        </n-space>
-      </div>
-    </n-modal>
   </div>
 </template>
 
